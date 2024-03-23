@@ -4,8 +4,8 @@ use anyhow::{Result, anyhow};
 fn run_prompt() -> Result<()> {
     loop {
         print!("> ");
-        let _ = io::stdout().flush();
-
+        io::stdout().flush().expect("Failed to flush stdout");
+        
         let mut input = String::new();
         io::stdin().read_line(&mut input)?;
         
@@ -13,7 +13,9 @@ fn run_prompt() -> Result<()> {
             break;
         }
 
-        print!("{}", input);
+        if let Err(e) = run(&input) {
+            eprintln!("{}", e);
+        }
     }
 
     Ok(())
@@ -21,7 +23,18 @@ fn run_prompt() -> Result<()> {
 
 fn run_file(path: &str) -> Result<()> {
     let contents = fs::read_to_string(path)?;
-    println!("{}", contents);
+    run(&contents)?;
+
+    Ok(())
+}
+
+fn run(source: &str) -> Result<()> {
+    if source.trim() == "error" {
+        return Err(anyhow!("Error"));
+    }
+    else {
+        print!("{}", source);
+    }
 
     Ok(())
 }
