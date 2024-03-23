@@ -1,6 +1,8 @@
 use std::{env, fs, io, io::Write};
 use anyhow::{Result, anyhow};
 
+mod token;
+
 fn run_prompt() -> Result<()> {
     loop {
         print!("> ");
