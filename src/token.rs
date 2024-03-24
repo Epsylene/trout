@@ -1,4 +1,6 @@
-enum TokenType {
+use std::any::Any;
+
+pub enum TokenType {
     // Single-character tokens
     LeftParen, RightParen, LeftBrace, RightBrace,
     Comma, Dot, Minus, Plus, Semicolon, Slash, Star,
@@ -16,18 +18,46 @@ enum TokenType {
     And, Class, Else, False, Fun, For, If, Nil, Or,
     Print, Return, Super, This, True, Var, While,
 
-    // End-of-file
-    EOF,
+    // Void characters
+    Whitespace, Eof,
+}
+
+pub enum LiteralType {
+    Nil,
+    String(String),
+    Float(f32),
+    Int(u32),
+    Bool(bool),
 }
 
 // Token struct: a token is a group of characters having
 // collective meaning. It is a string (the lexeme) identified
-// with a token type (separator, keyword, identifier, etc.) in
-// a context (the line number). The process of taking an input
-// string of characters and converting it into a sequence of
-// tokens is called lexical analysis.
-struct Token {
-    token_type: TokenType,
-    lexeme: String,
-    line: u32,
+// with a token type (separator, keyword, identifier, etc.) and
+// a literal value (float, int, string, nil...) in a context
+// (the line number).
+pub struct Token {
+    pub token_type: TokenType,
+    pub lexeme: String,
+    pub literal: LiteralType,
+    pub line: u32,
+}
+
+impl Token {
+    pub fn new(token_type: TokenType, lexeme: String, literal: LiteralType, line: u32) -> Self {
+        Token {
+            token_type,
+            lexeme,
+            literal,
+            line,
+        }
+    }
+
+    pub fn eof(line: u32) -> Self {
+        Token {
+            token_type: TokenType::Eof,
+            lexeme: String::new(),
+            literal: LiteralType::Nil,
+            line,
+        }
+    }
 }
