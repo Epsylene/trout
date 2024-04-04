@@ -1,5 +1,3 @@
-use std::any::Any;
-
 pub enum TokenType {
     // Single-character tokens
     LeftParen, RightParen, LeftBrace, RightBrace,
@@ -18,8 +16,14 @@ pub enum TokenType {
     And, Class, Else, False, Fun, For, If, Nil, Or,
     Print, Return, Super, This, True, Var, While,
 
+    // Comments
+    LineComment, BlockComment,
+
     // Void characters
-    Whitespace, Eof,
+    Whitespace, Newline,
+
+    // Special characters
+    Eof, Unknown,
 }
 
 pub enum LiteralType {

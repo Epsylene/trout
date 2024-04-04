@@ -1,5 +1,6 @@
 use std::{env, fs, io, io::Write};
 use anyhow::{Result, anyhow};
+use scanner::Scanner;
 
 mod token;
 mod scanner;
@@ -12,7 +13,7 @@ fn run_prompt() -> Result<()> {
         let mut input = String::new();
         io::stdin().read_line(&mut input)?;
         
-        if input.trim().is_empty() {
+        if input.trim() == "exit" {
             break;
         }
 
@@ -36,7 +37,9 @@ fn run(source: &str) -> Result<()> {
         return Err(anyhow!("Error"));
     }
     else {
-        print!("{}", source);
+        let mut scan = Scanner::new(source);
+        dbg!(source.chars().collect::<String>());
+        scan.scan_tokens()?;
     }
 
     Ok(())
