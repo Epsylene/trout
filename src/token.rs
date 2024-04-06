@@ -59,7 +59,7 @@ impl Token {
     pub fn eof(line: u32) -> Self {
         Token {
             token_type: TokenType::Eof,
-            lexeme: String::new(),
+            lexeme: '\0'.to_string(),
             literal: LiteralType::Nil,
             line,
         }

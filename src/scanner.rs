@@ -14,7 +14,7 @@ use anyhow::{Result, anyhow};
 // converting it into a sequence of tokens is called lexical
 // analysis.
 pub struct Scanner {
-    pub source: Vec<char>,
+    pub source: Vec<u8>,
     pub tokens: Vec<Token>,
     marker: usize,
     pos: usize,
@@ -24,7 +24,7 @@ pub struct Scanner {
 impl Scanner {
     pub fn new(source: &str) -> Self {
         Scanner {
-            source: source.chars().collect(),
+            source: source.as_bytes().to_vec(),
             tokens: Vec::new(),
             marker: 0,
             pos: 0,
@@ -76,33 +76,15 @@ impl Scanner {
             //         while self.peek_next() != '\n'  {
             //             self.current += 1;
             //         }
-
-            //         self.get_token(TokenType::LineComment)
+            //         TokenType::LineComment
             //     } else {
-            //         self.get_token(TokenType::Slash)
+            //         TokenType::Slash
             //     }
             // },
             // '"' => {
             //     while self.peek_next() != '"' {
             //         self.current += 1;
             //     }
-
-            //     if self.peek_next() == '\n' {
-            //         self.line += 1;
-            //     }
-
-            //     if self.current >= self.source.len() {
-            //         eprintln!("Unterminated string");
-            //         self.get_token(TokenType::Unknown)
-            //     } else {
-            //         self.current += 1;
-            //         self.get_literal_token(TokenType::String, LiteralType::String(
-            //             self.source.get(self.start+1..self.current-1)
-            //                 .ok_or(anyhow!("Error reading string"))?
-            //                 .iter().collect()
-            //         ))
-            //     }
-            // },
             ' '|'\r'|'\t' => TokenType::Whitespace,
             '\n' => {
                 self.line += 1;
@@ -125,7 +107,7 @@ impl Scanner {
     fn advance(&mut self) -> char {
         let c = self.source[self.pos];
         self.pos += 1;
-        c
+        c as char
     }
 
     fn match_next(&mut self, expected: char, token_type: TokenType, else_type: TokenType) -> TokenType {
@@ -138,7 +120,7 @@ impl Scanner {
     }
 
     fn zero(&self) -> char {
-        self.source[self.pos]
+        self.source[self.pos] as char
     }
 
     fn first(&self) -> char {
@@ -146,7 +128,7 @@ impl Scanner {
             return '\0';
         }
 
-        self.source[self.pos + 1]
+        self.source[self.pos + 1] as char
     }
 
     fn get_token(&mut self, token_type: TokenType) -> Result<Token> {
@@ -157,12 +139,11 @@ impl Scanner {
         // Get the lexeme between 'start' and 'current'
         let lexeme = self.source.get(self.marker..self.pos)
             .ok_or(anyhow!("Error reading lexeme"))?;
-
-        dbg!(self.marker, self.pos, lexeme);
+        let lexeme = std::str::from_utf8(lexeme)?;
 
         Ok(Token::new(
             token_type,
-            lexeme.iter().collect(),
+            lexeme.to_string(),
             literal,
             self.line
         ))
