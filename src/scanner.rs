@@ -1,5 +1,3 @@
-use std::borrow::Borrow;
-
 use crate::token::*;
 use anyhow::{Result, anyhow};
 
@@ -108,11 +106,12 @@ impl Scanner {
             // - If the character is a number digit, then the
             //   token must be a number, either int or float.
             _ if is_num(c) => TokenType::Number,
-            // - For an alphabetical character
-            _ if is_alpha(c) => {
-                self.eat_while(is_alphanumeric);
-                TokenType::Identifier
-            },
+            // - If it is a letter (a-Z A-Z) or an underscore,
+            //   then it is a general identifier (either an
+            //   object identifier or a keyword).
+            _ if is_alpha(c) => TokenType::Identifier,
+            // - If it is none of the above, then it is an
+            //   unknown character.
             _ => {
                 eprintln!("Unexpected character: '{}'", c);
                 TokenType::Unknown
@@ -122,7 +121,7 @@ impl Scanner {
         match kind {
             TokenType::Number => self.get_number_token(),
             TokenType::String => self.get_string_token(),
-            // TokenType::Identifier => self.get_identifier_token(),
+            TokenType::Identifier => self.get_identifier_token(),
             TokenType::LineComment => self.get_comment_token(),
             _ => self.get_token(kind),
         }
@@ -194,6 +193,25 @@ impl Scanner {
         Ok(lexeme)
     }
 
+    fn get_identifier_token(&mut self) -> Result<Token> {
+        // Eat while the character is alphanumeric (letter or
+        // number).
+        self.eat_while(is_alphanumeric);
+
+        // Get the lexeme and check if it is a keyword.
+        let lexeme = self.get_lexeme(self.start, self.current)?;
+        let kind = get_keyword(lexeme);
+
+        dbg!(lexeme, kind);
+
+        Ok(Token::new(
+            kind,
+            lexeme.to_string(),
+            LiteralType::Nil,
+            self.line
+        ))
+    }
+
     fn get_number_token(&mut self) -> Result<Token> {
         // First, consume all digits encountered.
         self.eat_while(is_num);
@@ -220,6 +238,8 @@ impl Scanner {
             let int = lexeme.parse::<u32>()?;
             lit = LiteralType::Int(int);
         }
+
+        dbg!(lexeme);
 
         Ok(Token::new(
             TokenType::Number,
@@ -287,4 +307,28 @@ fn is_num(c: char) -> bool {
 
 fn is_alphanumeric(c: char) -> bool {
     is_alpha(c) || is_num(c)
+}
+
+fn get_keyword(keyword: &str) -> TokenType {
+    // This is as fast or faster than a hash map, as it will
+    // compile to a jump table.
+    match keyword {
+        "and" => TokenType::And,
+        "class" => TokenType::Class,
+        "else" => TokenType::Else,
+        "false" => TokenType::False,
+        "for" => TokenType::For,
+        "fun" => TokenType::Fun,
+        "if" => TokenType::If,
+        "nil" => TokenType::Nil,
+        "or" => TokenType::Or,
+        "print" => TokenType::Print,
+        "return" => TokenType::Return,
+        "super" => TokenType::Super,
+        "this" => TokenType::This,
+        "true" => TokenType::True,
+        "var" => TokenType::Var,
+        "while" => TokenType::While,
+        _ => TokenType::Identifier,
+    }
 }
