@@ -86,17 +86,15 @@ impl Scanner {
             //   (comments, strings...)
             '/' => {
                 if self.zero() == '/' {
+                    // A line comment goes until the end of the
+                    // line.
                     self.eat_while(|c| c != '\n');
                     TokenType::LineComment
                 } else {
                     TokenType::Slash
                 }
             },
-            '"' => {
-                self.eat_while(|c| c != '"');
-                self.advance(); // Consume the closing quote
-                TokenType::String
-            },
+            '"' => TokenType::String,
             // - Special tokens: note that although the newline
             //   in Windows is "\r\n", we only need to check
             //   for '\n' and consider '\r' as whitespace.
@@ -105,8 +103,16 @@ impl Scanner {
                 self.line += 1;
                 TokenType::Newline
             },
-            // Other more complex cases are handled in the
-            // default branch:
+            // Other more complex cases are handled in
+            // specialized default branches:
+            // - If the character is a number digit, then the
+            //   token must be a number, either int or float.
+            _ if is_num(c) => TokenType::Number,
+            // - For an alphabetical character
+            _ if is_alpha(c) => {
+                self.eat_while(is_alphanumeric);
+                TokenType::Identifier
+            },
             _ => {
                 eprintln!("Unexpected character: '{}'", c);
                 TokenType::Unknown
@@ -114,9 +120,10 @@ impl Scanner {
         };
 
         match kind {
-            // TokenType::Number => self.get_number_token(),
+            TokenType::Number => self.get_number_token(),
             TokenType::String => self.get_string_token(),
             // TokenType::Identifier => self.get_identifier_token(),
+            TokenType::LineComment => self.get_comment_token(),
             _ => self.get_token(kind),
         }
     }
@@ -159,9 +166,14 @@ impl Scanner {
 
     fn eat_while(&mut self, condition: impl Fn(char) -> bool) {
         // While the condition on the character at the cursor
-        // position is met and we are not at EOF, keep reading.
+        // position is met and we are not at the EOF, keep
+        // reading.
         while condition(self.zero()) && !self.is_eof() {
-            self.advance();
+            // Check for '\n' while reading, to keep track of
+            // the line number.
+            if let '\n' = self.advance() {
+                self.line += 1;
+            }
         }
     }
 
@@ -182,7 +194,47 @@ impl Scanner {
         Ok(lexeme)
     }
 
+    fn get_number_token(&mut self) -> Result<Token> {
+        // First, consume all digits encountered.
+        self.eat_while(is_num);
+
+        let lexeme;
+        let lit;
+
+        // At this point, we have either reached the end of the
+        // number (in which case it is an integer) or a decimal
+        // point (in which case it is a float, and we have to
+        // keep reading). Note that we want at least one digit
+        // after the dot to avoid numbers like "3.", which
+        // might conflight the parser if we want to add methods
+        // on numbers later.
+        if self.zero() == '.' && is_num(self.first()) {
+            self.advance(); // Consume the '.'
+            self.eat_while(is_num);
+
+            lexeme = self.get_lexeme(self.start, self.current)?;
+            let float = lexeme.parse::<f32>()?;
+            lit = LiteralType::Float(float);
+        } else {
+            lexeme = self.get_lexeme(self.start, self.current)?;
+            let int = lexeme.parse::<u32>()?;
+            lit = LiteralType::Int(int);
+        }
+
+        Ok(Token::new(
+            TokenType::Number,
+            lexeme.to_string(),
+            lit,
+            self.line
+        ))
+    }
+
     fn get_string_token(&mut self) -> Result<Token> {
+        // Eat until the closing " is reached. Note here that
+        // this means that multiline strings are supported.
+        self.eat_while(|c| c != '"');
+        self.advance(); // Consume the closing quote
+        
         // Trim by one character at each side to get rid of the
         // quotes (which are not part of the string itself,
         // only its delimiters)
@@ -199,19 +251,40 @@ impl Scanner {
         ))
     }
 
-    fn get_token(&mut self, token_type: TokenType) -> Result<Token> {
+    fn get_comment_token(&self) -> Result<Token> {
+        Ok(Token::new(
+            TokenType::LineComment,
+            "".to_string(),
+            LiteralType::Nil,
+            self.line
+        ))
+    }
+
+    fn get_token(&self, token_type: TokenType) -> Result<Token> {
         // The lexeme is found between the start position
         // (marker) and the current position (pos).
         let lexeme = self.get_lexeme(self.start, self.current)?;
-        let literal = LiteralType::Nil;
 
         dbg!(lexeme);
 
         Ok(Token::new(
             token_type,
             lexeme.to_string(),
-            literal,
+            LiteralType::Nil,
             self.line
         ))
     }
+}
+
+fn is_alpha(c: char) -> bool {
+    // 
+    c.is_ascii_alphabetic() || c == '_'
+}
+
+fn is_num(c: char) -> bool {
+    c.is_ascii_digit()
+}
+
+fn is_alphanumeric(c: char) -> bool {
+    is_alpha(c) || is_num(c)
 }
