@@ -41,16 +41,16 @@ pub enum LiteralType {
 // a literal value (float, int, string, nil...) in a context
 // (the line number).
 pub struct Token {
-    pub token_type: TokenType,
+    pub kind: TokenType,
     pub lexeme: String,
     pub literal: LiteralType,
     pub line: u32,
 }
 
 impl Token {
-    pub fn new(token_type: TokenType, lexeme: String, literal: LiteralType, line: u32) -> Self {
+    pub fn new(kind: TokenType, lexeme: String, literal: LiteralType, line: u32) -> Self {
         Token {
-            token_type,
+            kind,
             lexeme,
             literal,
             line,
@@ -59,7 +59,7 @@ impl Token {
 
     pub fn eof(line: u32) -> Self {
         Token {
-            token_type: TokenType::Eof,
+            kind: TokenType::Eof,
             lexeme: '\0'.to_string(),
             literal: LiteralType::Nil,
             line,

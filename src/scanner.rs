@@ -41,13 +41,14 @@ impl Scanner {
             // cursor, get the token starting at this position,
             // and push it to the list of tokens.
             self.start = self.current;
-            let token = self.next_token()?;
-            self.tokens.push(token);
+            self.next_token()?;
             // By this point, the cursor has been advanced by
             // the number of characters of the token, and we
             // can get the next token during the next iteration
             // from the new position.
         }
+
+        self.tokens.iter().for_each(|t| println!("{:?}", t.lexeme));
 
         // We add an EOF token at the end of the list as well.
         self.tokens.push(Token::eof(self.line));
@@ -55,7 +56,7 @@ impl Scanner {
         Ok(())
     }
 
-    fn next_token(&mut self) -> Result<Token> {
+    fn next_token(&mut self) -> Result<()> {
         // First, we get the character at the current position
         // and advance the cursor by one.
         let c = self.advance();
@@ -84,9 +85,6 @@ impl Scanner {
             //   (comments, strings...)
             '/' => {
                 if self.zero() == '/' {
-                    // A line comment goes until the end of the
-                    // line.
-                    self.eat_while(|c| c != '\n');
                     TokenType::LineComment
                 } else {
                     TokenType::Slash
@@ -107,8 +105,8 @@ impl Scanner {
             //   token must be a number, either int or float.
             _ if is_num(c) => TokenType::Number,
             // - If it is a letter (a-Z A-Z) or an underscore,
-            //   then it is a general identifier (either an
-            //   object identifier or a keyword).
+            //   then it is an identifier (either a reserved
+            //   word or a general identifier).
             _ if is_alpha(c) => TokenType::Identifier,
             // - If it is none of the above, then it is an
             //   unknown character.
@@ -118,13 +116,22 @@ impl Scanner {
             },
         };
 
-        match kind {
-            TokenType::Number => self.get_number_token(),
-            TokenType::String => self.get_string_token(),
-            TokenType::Identifier => self.get_identifier_token(),
-            TokenType::LineComment => self.get_comment_token(),
-            _ => self.get_token(kind),
+        // Then we can match the kind to get the token itself.
+        let token = match kind {
+            TokenType::Number => self.get_number_token()?,
+            TokenType::String => self.get_string_token()?,
+            TokenType::Identifier => self.get_identifier_token()?,
+            TokenType::LineComment => self.get_comment_token()?,
+            _ => self.get_token(kind)?,
+        };
+
+        // If the token is neither whitespace nor a comment, we
+        // add it to the list of tokens.
+        if !(matches!(kind, TokenType::Whitespace | TokenType::Newline | TokenType::LineComment)) {
+            self.tokens.push(token);
         }
+
+        Ok(())
     }
 
     fn advance(&mut self) -> char {
@@ -195,14 +202,18 @@ impl Scanner {
 
     fn get_identifier_token(&mut self) -> Result<Token> {
         // Eat while the character is alphanumeric (letter or
-        // number).
+        // number). Here is displayed the principle of "maximal
+        // munch": when two lexical grammar rules can both
+        // match a chunk of code that the scanner is looking at
+        // (for example, the keyword "or" and the identifier
+        // "orchid"), whichever one matches the most characters
+        // wins. This allows the scanner to parse the code only
+        // based on lexical rules, not semantic ones.
         self.eat_while(is_alphanumeric);
 
         // Get the lexeme and check if it is a keyword.
         let lexeme = self.get_lexeme(self.start, self.current)?;
         let kind = get_keyword(lexeme);
-
-        dbg!(lexeme, kind);
 
         Ok(Token::new(
             kind,
@@ -230,16 +241,19 @@ impl Scanner {
             self.advance(); // Consume the '.'
             self.eat_while(is_num);
 
+            // Then get the lexeme and parse it as a float.
             lexeme = self.get_lexeme(self.start, self.current)?;
             let float = lexeme.parse::<f32>()?;
             lit = LiteralType::Float(float);
         } else {
+            // Same, but parsing as an integer (specifically,
+            // an unsigned 32-bit integer: negative numbers are
+            // handled as the combination of a - operator and a
+            // number literal).
             lexeme = self.get_lexeme(self.start, self.current)?;
             let int = lexeme.parse::<u32>()?;
             lit = LiteralType::Int(int);
         }
-
-        dbg!(lexeme);
 
         Ok(Token::new(
             TokenType::Number,
@@ -261,8 +275,6 @@ impl Scanner {
         let lexeme = self.get_lexeme(self.start+1, self.current-1)?;
         let literal = LiteralType::String(lexeme.to_string());
 
-        dbg!(lexeme);
-
         Ok(Token::new(
             TokenType::String,
             lexeme.to_string(),
@@ -271,7 +283,10 @@ impl Scanner {
         ))
     }
 
-    fn get_comment_token(&self) -> Result<Token> {
+    fn get_comment_token(&mut self) -> Result<Token> {
+        // A line comment goes until the end of the line.
+        self.eat_while(|c| c != '\n');
+        
         Ok(Token::new(
             TokenType::LineComment,
             "".to_string(),
@@ -285,8 +300,6 @@ impl Scanner {
         // (marker) and the current position (pos).
         let lexeme = self.get_lexeme(self.start, self.current)?;
 
-        dbg!(lexeme);
-
         Ok(Token::new(
             token_type,
             lexeme.to_string(),
@@ -297,11 +310,13 @@ impl Scanner {
 }
 
 fn is_alpha(c: char) -> bool {
-    // 
+    // "Alphabetic" characters for identifiers are characters
+    // in the range a-Z A-Z plus the underscore.
     c.is_ascii_alphabetic() || c == '_'
 }
 
 fn is_num(c: char) -> bool {
+    // A digit in the range 0-9.
     c.is_ascii_digit()
 }
 
