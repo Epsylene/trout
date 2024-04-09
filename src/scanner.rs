@@ -48,8 +48,6 @@ impl Scanner {
             // from the new position.
         }
 
-        self.tokens.iter().for_each(|t| println!("{:?}", t.lexeme));
-
         // We add an EOF token at the end of the list as well.
         self.tokens.push(Token::eof(self.line));
 
@@ -345,5 +343,29 @@ fn get_keyword(keyword: &str) -> TokenType {
         "var" => TokenType::Var,
         "while" => TokenType::While,
         _ => TokenType::Identifier,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_scanner() {
+        let source = "var a = 3.14;";
+        let mut scanner = Scanner::new(source);
+        scanner.scan_tokens().unwrap();
+
+        let expected = vec![
+            Token::new(TokenType::Var, "var".to_string(), LiteralType::Nil, 1),
+            Token::new(TokenType::Identifier, "a".to_string(), LiteralType::Nil, 1),
+            Token::new(TokenType::Equal, "=".to_string(), LiteralType::Nil, 1),
+            #[allow(clippy::approx_constant)]
+            Token::new(TokenType::Number, "3.14".to_string(), LiteralType::Float(3.14), 1),
+            Token::new(TokenType::Semicolon, ";".to_string(), LiteralType::Nil, 1),
+            Token::eof(1),
+        ];
+
+        assert_eq!(scanner.tokens, expected);
     }
 }

@@ -1,4 +1,4 @@
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum TokenType {
     // Single-character tokens
     LeftParen, RightParen, LeftBrace, RightBrace,
@@ -27,6 +27,7 @@ pub enum TokenType {
     Eof, Unknown,
 }
 
+#[derive(Debug, PartialEq)]
 pub enum LiteralType {
     Nil,
     String(String),
@@ -40,6 +41,7 @@ pub enum LiteralType {
 // with a token type (separator, keyword, identifier, etc.) and
 // a literal value (float, int, string, nil...) in a context
 // (the line number).
+#[derive(Debug, PartialEq)]
 pub struct Token {
     pub kind: TokenType,
     pub lexeme: String,
