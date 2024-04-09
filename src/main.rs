@@ -1,60 +1,62 @@
 use std::{env, fs, io, io::Write};
-use anyhow::{Result, anyhow};
 use scanner::Scanner;
+use error::{TroutError, Error};
 
 mod token;
 mod scanner;
+mod error;
 
-fn run_prompt() -> Result<()> {
+fn run_prompt() -> Result<(), TroutError> {
     loop {
         print!("> ");
-        io::stdout().flush().expect("Failed to flush stdout");
+        io::stdout().flush().map_err(|_|
+            TroutError::Sys("Error flushing stdout".to_string())
+        )?;
         
         let mut input = String::new();
-        io::stdin().read_line(&mut input)?;
+        io::stdin().read_line(&mut input).map_err(|_|
+            TroutError::Sys("Error reading input".to_string())
+        )?;
         
         if input.trim() == "exit" {
             break;
         }
 
-        if let Err(e) = run(&input) {
-            eprintln!("{}", e);
-        }
+        run(&input)?;
     }
 
     Ok(())
 }
 
-fn run_file(path: &str) -> Result<()> {
-    let contents = fs::read_to_string(path)?;
+fn run_file(path: &str) -> Result<(), TroutError> {
+    let contents = fs::read_to_string(path).map_err(|_|
+        TroutError::Sys(format!("Error reading file {}", path))
+    )?;
+
     run(&contents)?;
 
     Ok(())
 }
 
-fn run(source: &str) -> Result<()> {
-    if source.trim() == "error" {
-        return Err(anyhow!("Error"));
-    }
-    else {
-        let mut scan = Scanner::new(source);
-        dbg!(source.chars().collect::<String>());
-        scan.scan_tokens()?;
-    }
+fn run(source: &str) -> Result<(), TroutError> {
+    let mut scan = Scanner::new(source);
+    scan.scan_tokens().map_err(|_| 
+        TroutError::Sys("Error scanning tokens".to_string())
+    )?;
 
     Ok(())
 }
 
-fn main() -> Result<()> {
+fn main() -> Result<(),()> /* it makes a face! */ {
     let args: Vec<_> = env::args().collect();
     
     println!("A new trout has appearead!");
     match args.len() {
         1 => run_prompt(),
         2 => run_file(&args[1]),
-        _ => Err(anyhow!(r"
+        _ => Err(TroutError::Cli(r"
         Invalid number of arguments.
         Usage: trout [script]
-        ")),
-    }
+        ".to_string())),
+    }.map_err(|e| e.print())
 }

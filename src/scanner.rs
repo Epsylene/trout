@@ -17,9 +17,11 @@ use anyhow::{Result, anyhow};
 struct Cursor {
     start: usize,
     current: usize,
+    max: usize,
+
+    line_start: usize,
     line: u32,
     column: u32,
-    max: usize,
 }
 
 impl Cursor {
@@ -27,9 +29,10 @@ impl Cursor {
         Cursor {
             start: 0,
             current: 0,
+            max,
+            line_start: 0,
             line: 1,
             column: 1,
-            max,
         }
     }
 
@@ -48,6 +51,7 @@ impl Cursor {
 
     fn newline(&mut self) {
         self.line += 1;
+        self.line_start = self.current;
         self.column = 1;
     }
 }
@@ -387,7 +391,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_scanner() {
+    fn test_tokens() {
         let source = "var a = 0";
         let mut scanner = Scanner::new(source);
         scanner.scan_tokens().unwrap();
@@ -397,6 +401,37 @@ mod tests {
             Token::new(TokenKind::Identifier, "a".to_string(), LiteralType::Nil),
             Token::new(TokenKind::Equal, "=".to_string(), LiteralType::Nil),
             Token::new(TokenKind::Number, "0".to_string(), LiteralType::Int(0)),
+            Token::eof(),
+        ];
+
+        assert_eq!(scanner.tokens, expected);
+    }
+
+    #[test]
+    fn test_numbers() {
+        let source = "123 123.456 3.";
+        let mut scanner = Scanner::new(source);
+        scanner.scan_tokens().unwrap();
+
+        let expected = vec![
+            Token::new(TokenKind::Number, "123".to_string(), LiteralType::Int(123)),
+            Token::new(TokenKind::Number, "123.456".to_string(), LiteralType::Float(123.456)),
+            Token::new(TokenKind::Number, "3".to_string(), LiteralType::Int(3)),
+            Token::new(TokenKind::Dot, ".".to_string(), LiteralType::Nil),
+            Token::eof(),
+        ];
+
+        assert_eq!(scanner.tokens, expected);
+    }
+
+    #[test]
+    fn test_strings() {
+        let source = "\"Hello, world!\"";
+        let mut scanner = Scanner::new(source);
+        scanner.scan_tokens().unwrap();
+
+        let expected = vec![
+            Token::new(TokenKind::String, "Hello, world!".to_string(), LiteralType::String("Hello, world!".to_string())),
             Token::eof(),
         ];
 
