@@ -13,34 +13,76 @@ use anyhow::{Result, anyhow};
 // process of taking an input string of characters and
 // converting it into a sequence of tokens is called lexical
 // analysis.
-pub struct Scanner {
-    pub source: Vec<u8>,
-    pub tokens: Vec<Token>,
+
+struct Cursor {
     start: usize,
     current: usize,
     line: u32,
+    column: u32,
+    max: usize,
+}
+
+impl Cursor {
+    fn new(max: usize) -> Self {
+        Cursor {
+            start: 0,
+            current: 0,
+            line: 1,
+            column: 1,
+            max,
+        }
+    }
+
+    fn reset_start(&mut self) {
+        self.start = self.current;
+    }
+
+    fn advance(&mut self) {
+        self.current += 1;
+        self.column += 1;
+    }
+
+    fn at_eof(&self) -> bool {
+        self.current >= self.max
+    }
+
+    fn newline(&mut self) {
+        self.line += 1;
+        self.column = 1;
+    }
+}
+
+pub struct Scanner {
+    pub source: Vec<u8>,
+    pub tokens: Vec<Token>,
+    cursor: Cursor,
 }
 
 impl Scanner {
     pub fn new(source: &str) -> Self {
+        // Push an extra null byte at the end of the source
+        // code to avoid having to check for EOF at each
+        // character read (the EOF is marked at the original
+        // source buffer length)
+        let mut chars = source.as_bytes().to_vec();
+        chars.push(b'\0');
+
         Scanner {
-            source: source.as_bytes().to_vec(),
+            source: chars,
             tokens: Vec::new(),
-            start: 0,
-            current: 0,
-            line: 1,
+            cursor: Cursor::new(source.len()),
         }
     }
 
     pub fn scan_tokens(&mut self) -> Result<()> {
         // Starting at the beginning of the source code, we
         // read characters until the EOF is reached.
-        while !self.is_eof() {
+        while !self.cursor.at_eof() {
             // At the start of each iteration, we set the
             // 'start' marker to the current position of the
             // cursor, get the token starting at this position,
             // and push it to the list of tokens.
-            self.start = self.current;
+            self.cursor.reset_start();
             self.next_token()?;
             // By this point, the cursor has been advanced by
             // the number of characters of the token, and we
@@ -49,7 +91,7 @@ impl Scanner {
         }
 
         // We add an EOF token at the end of the list as well.
-        self.tokens.push(Token::eof(self.line));
+        self.tokens.push(Token::eof());
 
         Ok(())
     }
@@ -63,69 +105,69 @@ impl Scanner {
         // kind:
         let kind = match c {
             // - One-character tokens
-            '(' => TokenType::LeftParen,
-            ')' => TokenType::RightParen,
-            '{' => TokenType::LeftBrace,
-            '}' => TokenType::RightBrace,
-            ',' => TokenType::Comma,
-            '.' => TokenType::Dot,
-            '-' => TokenType::Minus,
-            '+' => TokenType::Plus,
-            ';' => TokenType::Semicolon,
-            '*' => TokenType::Star,
+            '(' => TokenKind::LeftParen,
+            ')' => TokenKind::RightParen,
+            '{' => TokenKind::LeftBrace,
+            '}' => TokenKind::RightBrace,
+            ',' => TokenKind::Comma,
+            '.' => TokenKind::Dot,
+            '-' => TokenKind::Minus,
+            '+' => TokenKind::Plus,
+            ';' => TokenKind::Semicolon,
+            '*' => TokenKind::Star,
             // - Both one- and two-character tokens ("!" and
             // "!=", "=" and "==", etc)
-            '!' => self.match_next('=', TokenType::BangEqual, TokenType::Bang),
-            '=' => self.match_next('=', TokenType::EqualEqual, TokenType::Equal),
-            '<' => self.match_next('=', TokenType::LessEqual, TokenType::Less),
-            '>' => self.match_next('=', TokenType::GreaterEqual, TokenType::Greater),
+            '!' => self.match_next('=', TokenKind::BangEqual, TokenKind::Bang),
+            '=' => self.match_next('=', TokenKind::EqualEqual, TokenKind::Equal),
+            '<' => self.match_next('=', TokenKind::LessEqual, TokenKind::Less),
+            '>' => self.match_next('=', TokenKind::GreaterEqual, TokenKind::Greater),
             // - Tokens that end with a special character
             //   (comments, strings...)
             '/' => {
                 if self.zero() == '/' {
-                    TokenType::LineComment
+                    TokenKind::LineComment
                 } else {
-                    TokenType::Slash
+                    TokenKind::Slash
                 }
             },
-            '"' => TokenType::String,
+            '"' => TokenKind::String,
             // - Special tokens: note that although the newline
             //   in Windows is "\r\n", we only need to check
             //   for '\n' and consider '\r' as whitespace.
-            ' '|'\r'|'\t' => TokenType::Whitespace,
+            ' '|'\r'|'\t' => TokenKind::Whitespace,
             '\n' => {
-                self.line += 1;
-                TokenType::Newline
+                self.cursor.newline();
+                TokenKind::Newline
             },
             // Other more complex cases are handled in
             // specialized default branches:
             // - If the character is a number digit, then the
             //   token must be a number, either int or float.
-            _ if is_num(c) => TokenType::Number,
+            _ if is_num(c) => TokenKind::Number,
             // - If it is a letter (a-Z A-Z) or an underscore,
             //   then it is an identifier (either a reserved
             //   word or a general identifier).
-            _ if is_alpha(c) => TokenType::Identifier,
+            _ if is_alpha(c) => TokenKind::Identifier,
             // - If it is none of the above, then it is an
             //   unknown character.
             _ => {
                 eprintln!("Unexpected character: '{}'", c);
-                TokenType::Unknown
+                TokenKind::Unknown
             },
         };
 
         // Then we can match the kind to get the token itself.
         let token = match kind {
-            TokenType::Number => self.get_number_token()?,
-            TokenType::String => self.get_string_token()?,
-            TokenType::Identifier => self.get_identifier_token()?,
-            TokenType::LineComment => self.get_comment_token()?,
+            TokenKind::Number => self.get_number_token()?,
+            TokenKind::String => self.get_string_token()?,
+            TokenKind::Identifier => self.get_identifier_token()?,
+            TokenKind::LineComment => self.get_comment_token()?,
             _ => self.get_token(kind)?,
         };
 
         // If the token is neither whitespace nor a comment, we
         // add it to the list of tokens.
-        if !(matches!(kind, TokenType::Whitespace | TokenType::Newline | TokenType::LineComment)) {
+        if !(matches!(kind, TokenKind::Whitespace | TokenKind::Newline | TokenKind::LineComment)) {
             self.tokens.push(token);
         }
 
@@ -133,12 +175,12 @@ impl Scanner {
     }
 
     fn advance(&mut self) -> char {
-        let c = self.source[self.current];
-        self.current += 1;
+        let c = self.source[self.cursor.current];
+        self.cursor.advance();
         c as char
     }
 
-    fn match_next(&mut self, expected: char, token_type: TokenType, else_type: TokenType) -> TokenType {
+    fn match_next(&mut self, expected: char, token_type: TokenKind, else_type: TokenKind) -> TokenKind {
         // For tokens that can be either one- or two-character
         // long, we need to check the next character to decide
         // (for example, "!" can be followed by "=" to form
@@ -157,33 +199,32 @@ impl Scanner {
     }
 
     fn zero(&self) -> char {
-        self.source[self.current] as char
+        self.source[self.cursor.current] as char
     }
 
     fn first(&self) -> char {
-        if self.current + 1 >= self.source.len() {
+        if self.cursor.at_eof() {
             return '\0';
         }
 
-        self.source[self.current + 1] as char
+        self.source[self.cursor.current + 1] as char
     }
 
-    fn eat_while(&mut self, condition: impl Fn(char) -> bool) {
+    fn eat_while(&mut self, predicate: impl Fn(char) -> bool) {
         // While the condition on the character at the cursor
         // position is met and we are not at the EOF, keep
         // reading.
-        while condition(self.zero()) && !self.is_eof() {
+        while !self.cursor.at_eof() && predicate(self.zero()) {
             // Check for '\n' while reading, to keep track of
             // the line number.
             if let '\n' = self.advance() {
-                self.line += 1;
+                self.cursor.newline();
             }
         }
     }
 
-    fn is_eof(&self) -> bool {
-        // Check if we are beyond the end of the source code.
-        self.current >= self.source.len()
+    fn get_current_lexeme(&self) -> Result<&str> {
+        self.get_lexeme(self.cursor.start, self.cursor.current)
     }
 
     fn get_lexeme(&self, start: usize, end: usize) -> Result<&str> {
@@ -210,14 +251,13 @@ impl Scanner {
         self.eat_while(is_alphanumeric);
 
         // Get the lexeme and check if it is a keyword.
-        let lexeme = self.get_lexeme(self.start, self.current)?;
+        let lexeme = self.get_current_lexeme()?;
         let kind = get_keyword(lexeme);
 
         Ok(Token::new(
             kind,
             lexeme.to_string(),
             LiteralType::Nil,
-            self.line
         ))
     }
 
@@ -240,7 +280,7 @@ impl Scanner {
             self.eat_while(is_num);
 
             // Then get the lexeme and parse it as a float.
-            lexeme = self.get_lexeme(self.start, self.current)?;
+            lexeme = self.get_current_lexeme()?;
             let float = lexeme.parse::<f32>()?;
             lit = LiteralType::Float(float);
         } else {
@@ -248,16 +288,15 @@ impl Scanner {
             // an unsigned 32-bit integer: negative numbers are
             // handled as the combination of a - operator and a
             // number literal).
-            lexeme = self.get_lexeme(self.start, self.current)?;
+            lexeme = self.get_current_lexeme()?;
             let int = lexeme.parse::<u32>()?;
             lit = LiteralType::Int(int);
         }
 
         Ok(Token::new(
-            TokenType::Number,
+            TokenKind::Number,
             lexeme.to_string(),
             lit,
-            self.line
         ))
     }
 
@@ -270,14 +309,13 @@ impl Scanner {
         // Trim by one character at each side to get rid of the
         // quotes (which are not part of the string itself,
         // only its delimiters)
-        let lexeme = self.get_lexeme(self.start+1, self.current-1)?;
+        let lexeme = self.get_lexeme(self.cursor.start+1, self.cursor.current-1)?;
         let literal = LiteralType::String(lexeme.to_string());
 
         Ok(Token::new(
-            TokenType::String,
+            TokenKind::String,
             lexeme.to_string(),
             literal,
-            self.line
         ))
     }
 
@@ -286,23 +324,21 @@ impl Scanner {
         self.eat_while(|c| c != '\n');
         
         Ok(Token::new(
-            TokenType::LineComment,
+            TokenKind::LineComment,
             "".to_string(),
             LiteralType::Nil,
-            self.line
         ))
     }
 
-    fn get_token(&self, token_type: TokenType) -> Result<Token> {
+    fn get_token(&self, token_type: TokenKind) -> Result<Token> {
         // The lexeme is found between the start position
         // (marker) and the current position (pos).
-        let lexeme = self.get_lexeme(self.start, self.current)?;
+        let lexeme = self.get_current_lexeme()?;
 
         Ok(Token::new(
             token_type,
             lexeme.to_string(),
             LiteralType::Nil,
-            self.line
         ))
     }
 }
@@ -322,27 +358,27 @@ fn is_alphanumeric(c: char) -> bool {
     is_alpha(c) || is_num(c)
 }
 
-fn get_keyword(keyword: &str) -> TokenType {
+fn get_keyword(keyword: &str) -> TokenKind {
     // This is as fast or faster than a hash map, as it will
     // compile to a jump table.
     match keyword {
-        "and" => TokenType::And,
-        "class" => TokenType::Class,
-        "else" => TokenType::Else,
-        "false" => TokenType::False,
-        "for" => TokenType::For,
-        "fun" => TokenType::Fun,
-        "if" => TokenType::If,
-        "nil" => TokenType::Nil,
-        "or" => TokenType::Or,
-        "print" => TokenType::Print,
-        "return" => TokenType::Return,
-        "super" => TokenType::Super,
-        "this" => TokenType::This,
-        "true" => TokenType::True,
-        "var" => TokenType::Var,
-        "while" => TokenType::While,
-        _ => TokenType::Identifier,
+        "and" => TokenKind::And,
+        "or" => TokenKind::Or,
+        "class" => TokenKind::Class,
+        "if" => TokenKind::If,
+        "else" => TokenKind::Else,
+        "for" => TokenKind::For,
+        "while" => TokenKind::While,
+        "fun" => TokenKind::Fun,
+        "nil" => TokenKind::Nil,
+        "print" => TokenKind::Print,
+        "return" => TokenKind::Return,
+        "super" => TokenKind::Super,
+        "this" => TokenKind::This,
+        "true" => TokenKind::True,
+        "false" => TokenKind::False,
+        "var" => TokenKind::Var,
+        _ => TokenKind::Identifier,
     }
 }
 
@@ -352,18 +388,16 @@ mod tests {
 
     #[test]
     fn test_scanner() {
-        let source = "var a = 3.14;";
+        let source = "var a = 0";
         let mut scanner = Scanner::new(source);
         scanner.scan_tokens().unwrap();
 
         let expected = vec![
-            Token::new(TokenType::Var, "var".to_string(), LiteralType::Nil, 1),
-            Token::new(TokenType::Identifier, "a".to_string(), LiteralType::Nil, 1),
-            Token::new(TokenType::Equal, "=".to_string(), LiteralType::Nil, 1),
-            #[allow(clippy::approx_constant)]
-            Token::new(TokenType::Number, "3.14".to_string(), LiteralType::Float(3.14), 1),
-            Token::new(TokenType::Semicolon, ";".to_string(), LiteralType::Nil, 1),
-            Token::eof(1),
+            Token::new(TokenKind::Var, "var".to_string(), LiteralType::Nil),
+            Token::new(TokenKind::Identifier, "a".to_string(), LiteralType::Nil),
+            Token::new(TokenKind::Equal, "=".to_string(), LiteralType::Nil),
+            Token::new(TokenKind::Number, "0".to_string(), LiteralType::Int(0)),
+            Token::eof(),
         ];
 
         assert_eq!(scanner.tokens, expected);

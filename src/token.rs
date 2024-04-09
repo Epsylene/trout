@@ -1,5 +1,5 @@
 #[derive(Debug, Clone, Copy, PartialEq)]
-pub enum TokenType {
+pub enum TokenKind {
     // Single-character tokens
     LeftParen, RightParen, LeftBrace, RightBrace,
     Comma, Dot, Minus, Plus, Semicolon, Slash, Star,
@@ -43,28 +43,25 @@ pub enum LiteralType {
 // (the line number).
 #[derive(Debug, PartialEq)]
 pub struct Token {
-    pub kind: TokenType,
+    pub kind: TokenKind,
     pub lexeme: String,
     pub literal: LiteralType,
-    pub line: u32,
 }
 
 impl Token {
-    pub fn new(kind: TokenType, lexeme: String, literal: LiteralType, line: u32) -> Self {
+    pub fn new(kind: TokenKind, lexeme: String, literal: LiteralType) -> Self {
         Token {
             kind,
             lexeme,
             literal,
-            line,
         }
     }
 
-    pub fn eof(line: u32) -> Self {
+    pub fn eof() -> Self {
         Token {
-            kind: TokenType::Eof,
+            kind: TokenKind::Eof,
             lexeme: '\0'.to_string(),
             literal: LiteralType::Nil,
-            line,
         }
     }
 }
