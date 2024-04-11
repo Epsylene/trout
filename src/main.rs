@@ -35,14 +35,9 @@ fn run_file(path: &str) -> Result<(), AppError> {
         AppError::Sys(format!("Error reading file {}", path))
     )?;
 
-    contents
-        .split('\n')
-        .for_each(|line| {
-            if let Err(e) = run(line) {
-                eprintln!("Error(s) on line: {}", line);
-                eprintln!("{}", e);
-            }
-        });
+    if let Err(e) = run(&contents) {
+        eprintln!("{}", e);
+    }
 
     Ok(())
 }
