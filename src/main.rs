@@ -1,21 +1,21 @@
 use std::{env, fs, io, io::Write};
 use scanner::Scanner;
-use error::{TroutError, Error};
+use error::AppError;
 
 mod token;
 mod scanner;
 mod error;
 
-fn run_prompt() -> Result<(), TroutError> {
+fn run_prompt() -> Result<(), AppError> {
     loop {
         print!("> ");
         io::stdout().flush().map_err(|_|
-            TroutError::Sys("Error flushing stdout".to_string())
+            AppError::Sys("Error flushing stdout".to_string())
         )?;
         
         let mut input = String::new();
         io::stdin().read_line(&mut input).map_err(|_|
-            TroutError::Sys("Error reading input".to_string())
+            AppError::Sys("Error reading input".to_string())
         )?;
         
         if input.trim() == "exit" {
@@ -28,9 +28,9 @@ fn run_prompt() -> Result<(), TroutError> {
     Ok(())
 }
 
-fn run_file(path: &str) -> Result<(), TroutError> {
+fn run_file(path: &str) -> Result<(), AppError> {
     let contents = fs::read_to_string(path).map_err(|_|
-        TroutError::Sys(format!("Error reading file {}", path))
+        AppError::Sys(format!("Error reading file {}", path))
     )?;
 
     run(&contents)?;
@@ -38,11 +38,9 @@ fn run_file(path: &str) -> Result<(), TroutError> {
     Ok(())
 }
 
-fn run(source: &str) -> Result<(), TroutError> {
+fn run(source: &str) -> Result<(), AppError> {
     let mut scan = Scanner::new(source);
-    scan.scan_tokens().map_err(|_| 
-        TroutError::Sys("Error scanning tokens".to_string())
-    )?;
+    scan.scan_tokens().map_err(AppError::Compiler)?;
 
     Ok(())
 }
@@ -54,7 +52,7 @@ fn main() -> Result<(),()> /* it makes a face! */ {
     match args.len() {
         1 => run_prompt(),
         2 => run_file(&args[1]),
-        _ => Err(TroutError::Cli(r"
+        _ => Err(AppError::Cli(r"
         Invalid number of arguments.
         Usage: trout [script]
         ".to_string())),

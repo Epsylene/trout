@@ -1,5 +1,5 @@
 use crate::token::*;
-use anyhow::{Result, anyhow};
+use crate::error::{Error, ErrorKind};
 
 // A source code is a string of characters from which we want
 // to extract meaning. The first step in doing so is
@@ -14,14 +14,17 @@ use anyhow::{Result, anyhow};
 // converting it into a sequence of tokens is called lexical
 // analysis.
 
-struct Cursor {
+pub struct Cursor {
+    // For iterating: start marks the beginning of the
+    // currently parsed token, current is the position of the
+    // cursor in the source code, and eof is the maximum
+    // position of the cursor.
     start: usize,
     current: usize,
-    max: usize,
-
-    line_start: usize,
-    line: u32,
-    column: u32,
+    eof: usize,
+    // For error reporting
+    pub line: u32,
+    pub column: u32,
 }
 
 impl Cursor {
@@ -29,10 +32,9 @@ impl Cursor {
         Cursor {
             start: 0,
             current: 0,
-            max,
-            line_start: 0,
+            eof: max,
             line: 1,
-            column: 1,
+            column: 0,
         }
     }
 
@@ -46,12 +48,11 @@ impl Cursor {
     }
 
     fn at_eof(&self) -> bool {
-        self.current >= self.max
+        self.current >= self.eof
     }
 
     fn newline(&mut self) {
         self.line += 1;
-        self.line_start = self.current;
         self.column = 1;
     }
 }
@@ -78,7 +79,9 @@ impl Scanner {
         }
     }
 
-    pub fn scan_tokens(&mut self) -> Result<()> {
+    pub fn scan_tokens(&mut self) -> Result<(), Vec<Error>> {
+        let mut errors: Vec<Error> = Vec::new();
+        
         // Starting at the beginning of the source code, we
         // read characters until the EOF is reached.
         while !self.cursor.at_eof() {
@@ -87,7 +90,9 @@ impl Scanner {
             // cursor, get the token starting at this position,
             // and push it to the list of tokens.
             self.cursor.reset_start();
-            self.next_token()?;
+            if let Err(e) = self.next_token() {
+                errors.push(e);
+            }
             // By this point, the cursor has been advanced by
             // the number of characters of the token, and we
             // can get the next token during the next iteration
@@ -97,10 +102,13 @@ impl Scanner {
         // We add an EOF token at the end of the list as well.
         self.tokens.push(Token::eof());
 
-        Ok(())
+        match errors.len() {
+            0 => Ok(()),
+            _ => Err(errors),
+        }
     }
 
-    fn next_token(&mut self) -> Result<()> {
+    fn next_token(&mut self) -> Result<(), Error> {
         // First, we get the character at the current position
         // and advance the cursor by one.
         let c = self.advance();
@@ -155,19 +163,21 @@ impl Scanner {
             // - If it is none of the above, then it is an
             //   unknown character.
             _ => {
-                eprintln!("Unexpected character: '{}'", c);
-                TokenKind::Unknown
+                return Err(Error::new(
+                    &self.cursor,
+                    ErrorKind::UnexpectedCharacter(c),
+                ));
             },
         };
 
         // Then we can match the kind to get the token itself.
         let token = match kind {
-            TokenKind::Number => self.get_number_token()?,
-            TokenKind::String => self.get_string_token()?,
-            TokenKind::Identifier => self.get_identifier_token()?,
-            TokenKind::LineComment => self.get_comment_token()?,
-            _ => self.get_token(kind)?,
-        };
+            TokenKind::Number => self.get_number_token(),
+            TokenKind::String => self.get_string_token(),
+            TokenKind::Identifier => self.get_identifier_token(),
+            TokenKind::LineComment => self.get_comment_token(),
+            _ => self.get_token(kind),
+        }?;
 
         // If the token is neither whitespace nor a comment, we
         // add it to the list of tokens.
@@ -227,23 +237,33 @@ impl Scanner {
         }
     }
 
-    fn get_current_lexeme(&self) -> Result<&str> {
+    fn get_current_lexeme(&self) -> Result<String, Error> {
         self.get_lexeme(self.cursor.start, self.cursor.current)
     }
 
-    fn get_lexeme(&self, start: usize, end: usize) -> Result<&str> {
+    fn get_lexeme(&self, start: usize, end: usize) -> Result<String, Error> {
         // The lexeme, that is, the string of characters that
         // make up the token, is the slice of the source code
         // between the start and end positions found during
         // tokenisation.
         let lexeme = self.source.get(start..end)
-            .ok_or(anyhow!("Error reading lexeme"))?;
-        let lexeme = std::str::from_utf8(lexeme)?;
+            .ok_or(Error::new(
+                &self.cursor, 
+                ErrorKind::LexemeOutOfBounds(start, end, self.cursor.eof)
+            )
+        )?;
+        
+        let lexeme = std::str::from_utf8(lexeme).map_err(|_|
+            Error::new(
+                &self.cursor, 
+                ErrorKind::NotValidUTF8
+            )
+        )?;
 
-        Ok(lexeme)
+        Ok(lexeme.to_string())
     }
 
-    fn get_identifier_token(&mut self) -> Result<Token> {
+    fn get_identifier_token(&mut self) -> Result<Token, Error> {
         // Eat while the character is alphanumeric (letter or
         // number). Here is displayed the principle of "maximal
         // munch": when two lexical grammar rules can both
@@ -256,7 +276,7 @@ impl Scanner {
 
         // Get the lexeme and check if it is a keyword.
         let lexeme = self.get_current_lexeme()?;
-        let kind = get_keyword(lexeme);
+        let kind = get_keyword(lexeme.as_str());
 
         Ok(Token::new(
             kind,
@@ -265,7 +285,7 @@ impl Scanner {
         ))
     }
 
-    fn get_number_token(&mut self) -> Result<Token> {
+    fn get_number_token(&mut self) -> Result<Token, Error> {
         // First, consume all digits encountered.
         self.eat_while(is_num);
 
@@ -285,7 +305,13 @@ impl Scanner {
 
             // Then get the lexeme and parse it as a float.
             lexeme = self.get_current_lexeme()?;
-            let float = lexeme.parse::<f32>()?;
+            let float = lexeme.parse::<f32>()
+                .map_err(|_| Error::new(
+                    &self.cursor, 
+                    ErrorKind::FloatParseError(lexeme.clone())
+                )
+            )?;
+
             lit = LiteralType::Float(float);
         } else {
             // Same, but parsing as an integer (specifically,
@@ -293,7 +319,13 @@ impl Scanner {
             // handled as the combination of a - operator and a
             // number literal).
             lexeme = self.get_current_lexeme()?;
-            let int = lexeme.parse::<u32>()?;
+            let int = lexeme.parse::<u32>()
+                .map_err(|_| Error::new(
+                    &self.cursor, 
+                    ErrorKind::IntParseError(lexeme.clone())
+                )
+            )?;
+
             lit = LiteralType::Int(int);
         }
 
@@ -304,7 +336,7 @@ impl Scanner {
         ))
     }
 
-    fn get_string_token(&mut self) -> Result<Token> {
+    fn get_string_token(&mut self) -> Result<Token, Error> {
         // Eat until the closing " is reached. Note here that
         // this means that multiline strings are supported.
         self.eat_while(|c| c != '"');
@@ -323,7 +355,7 @@ impl Scanner {
         ))
     }
 
-    fn get_comment_token(&mut self) -> Result<Token> {
+    fn get_comment_token(&mut self) -> Result<Token, Error> {
         // A line comment goes until the end of the line.
         self.eat_while(|c| c != '\n');
         
@@ -334,7 +366,7 @@ impl Scanner {
         ))
     }
 
-    fn get_token(&self, token_type: TokenKind) -> Result<Token> {
+    fn get_token(&self, token_type: TokenKind) -> Result<Token, Error> {
         // The lexeme is found between the start position
         // (marker) and the current position (pos).
         let lexeme = self.get_current_lexeme()?;
