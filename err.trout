@@ -1,0 +1,4 @@
+a = b // not an error
+a^2 b^3 // errors
+%% // this too
+ઔ // wtf

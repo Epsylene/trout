@@ -22,7 +22,9 @@ fn run_prompt() -> Result<(), AppError> {
             break;
         }
 
-        run(&input)?;
+        if let Err(e) = run(&input) {
+            eprintln!("{}", e);
+        }
     }
 
     Ok(())
@@ -33,7 +35,14 @@ fn run_file(path: &str) -> Result<(), AppError> {
         AppError::Sys(format!("Error reading file {}", path))
     )?;
 
-    run(&contents)?;
+    contents
+        .split('\n')
+        .for_each(|line| {
+            if let Err(e) = run(line) {
+                eprintln!("Error(s) on line: {}", line);
+                eprintln!("{}", e);
+            }
+        });
 
     Ok(())
 }
@@ -45,7 +54,7 @@ fn run(source: &str) -> Result<(), AppError> {
     Ok(())
 }
 
-fn main() -> Result<(),()> /* it makes a face! */ {
+fn main() {
     let args: Vec<_> = env::args().collect();
     
     println!("A new trout has appearead!");
@@ -56,5 +65,5 @@ fn main() -> Result<(),()> /* it makes a face! */ {
         Invalid number of arguments.
         Usage: trout [script]
         ".to_string())),
-    }.map_err(|e| e.print())
+    }.unwrap_or_else(|e| eprintln!("{}", e));
 }

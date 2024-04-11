@@ -8,17 +8,17 @@ pub enum AppError {
     Cli(String),
 }
 
-impl AppError {
-    pub fn print(&self) {
+impl Display for AppError {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         match self {
             AppError::Sys(message) => {
-                eprintln!("System error: {}", message);
+                write!(f, "System error: {}", message)
             }
             AppError::Cli(message) => {
-                eprintln!("CLI error: {}", message);
+                write!(f, "CLI error: {}", message)
             }
             AppError::Compiler(errors) => {
-                errors.iter().for_each(|e| eprintln!("{}", e));
+                errors.iter().fold(Ok(()), |_, e| writeln!(f, "{}", e))
             }
         }
     }
