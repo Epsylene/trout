@@ -5,6 +5,7 @@ use error::AppError;
 mod token;
 mod scanner;
 mod error;
+mod ast;
 
 fn run_prompt() -> Result<(), AppError> {
     loop {
@@ -51,7 +52,7 @@ fn run(source: &str) -> Result<(), AppError> {
 
 fn main() {
     let args: Vec<_> = env::args().collect();
-    
+
     println!("A new trout has appearead!");
     match args.len() {
         1 => run_prompt(),
