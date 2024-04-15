@@ -1,16 +1,16 @@
 use crate::token::Token;
 
-// We have a scanner, which reads the source code and produces
-// a series of tokens -- the vocabulary of our language. Now,
-// we need to define how and when those tokens can interact,
-// that is, to define a "syntactic grammar" on the tokens, just
-// like we defined a lexical grammar on the characters forming
-// the tokens. In general, a "formal grammar" is a set of rules
-// that describes which strings from a given alphabet
-// (characters for a lexical grammar, tokens for a syntactic
-// grammar) are valid according to the language's syntax.
-// Formal grammars are ranked in a four-tier set of inclusions,
-// the Chomksky hierarchy:
+// We have a source code, which is a string of characters from
+// which we derive a series of tokens -- the vocabulary of our
+// language. Now, we need to define how and when those tokens
+// can interact, that is, to define a "syntactic grammar" on
+// the tokens, just like we defined a lexical grammar on the
+// characters forming the tokens. In general, a "formal
+// grammar" is a set of rules that describes which strings from
+// a given alphabet (characters for a lexical grammar, tokens
+// for a syntactic grammar) are valid according to the
+// language's syntax. Formal grammars are ranked in a four-tier
+// set of inclusions, the Chomksky hierarchy:
 //
 // - Regular languages (type 3): languages described by regular
 //   expressions that can be parsed with a finite automaton
@@ -55,32 +55,14 @@ use crate::token::Token;
 // separates alternative productions, and the parentheses "()"
 // are used for grouping.
 //
-// Let us now define a grammar for our language, starting with
-// a simplified version. Any expression in the language can be
-// either:
-// - A literal (number, string, boolean, or nil);
-// - A unary operation (a single ! or - operator followed by an
-//   expression)
-// - A binary operation (two expressions separated by an
-//   operator)
-// - A grouping (an expression enclosed in parentheses)
-//
-// We can write this grammar in BNF as:
-//
-//     expression := literal | unary | binary | grouping
-//     literal := number | string | boolean | nil
-//     unary := ("!" | "-") expression
-//     binary := expression operator expression
-//     grouping := "(" expression ")"
-//
-// Now, this grammar is recursive: the "expression" rule refers
-// to "binary", which itself refers to "expression", for
-// example. This means that the data structure representing the
-// grammar will form a tree: this is called an "abstract syntax
-// tree", or AST. Each node in the tree represents a rule in
-// the grammar, and the children of the node represent the
-// symbols in the rule.
-trait Expr {
+// The AST (Abstract Syntax Tree) is the data structure used to
+// represented the formal grammar of the language. Each of its
+// nodes represents a construct in the language: internal nodes
+// are made of operators (in the broad sense), which build one
+// upon each other until reaching the terminal symbols in the
+// leaves (like numbers or strings).
+
+pub trait Expr {
     // fn print(&self);
 }
 
@@ -96,6 +78,14 @@ macro_rules! make_expr {
     }
 }
 
+// Let us define a grammar for our language. Any expression in
+// the language can be either:
+// - A literal (number, string, boolean, or nil);
+// - A unary operation (a single ! or - operator followed by an
+//   expression)
+// - A binary operation (two expressions separated by an
+//   operator)
+// - A grouping (an expression enclosed in parentheses)
 make_expr!(Literal, value: Token);
 make_expr!(Unary, operator: Token, right: Box<dyn Expr>);
 make_expr!(Binary, left: Box<dyn Expr>, operator: Token, right: Box<dyn Expr>);
