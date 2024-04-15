@@ -6,6 +6,7 @@ mod token;
 mod scanner;
 mod error;
 mod ast;
+mod parser;
 
 fn run_prompt() -> Result<(), AppError> {
     loop {
