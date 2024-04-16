@@ -62,22 +62,6 @@ use crate::token::Token;
 // upon each other until reaching the terminal symbols in the
 // leaves (like numbers or strings).
 
-pub trait Expr {
-    // fn print(&self);
-}
-
-macro_rules! make_expr {
-    ($name: ident, $($element: ident: $ty: ty),*) => {
-        struct $name { $($element: $ty),* }
-
-        impl Expr for $name {
-            // fn print(&self) {
-            //     println!("{:?}", self);
-            // }
-        }
-    }
-}
-
 // Let us define a grammar for our language. Any expression in
 // the language can be either:
 // - A literal (number, string, boolean, or nil);
@@ -86,7 +70,36 @@ macro_rules! make_expr {
 // - A binary operation (two expressions separated by an
 //   operator)
 // - A grouping (an expression enclosed in parentheses)
-make_expr!(Literal, value: Token);
-make_expr!(Unary, operator: Token, right: Box<dyn Expr>);
-make_expr!(Binary, left: Box<dyn Expr>, operator: Token, right: Box<dyn Expr>);
-make_expr!(Grouping, expression: Box<dyn Expr>);
+pub enum Expr {
+    Literal { value: Token },
+    Unary { operator: Token, right: Box<Expr> },
+    Binary { left: Box<Expr>, operator: Token, right: Box<Expr> },
+    Grouping { expression: Box<Expr> },
+}
+
+impl Expr {
+    pub fn literal(value: Token) -> Self {
+        Expr::Literal { value }
+    }
+
+    pub fn unary(operator: Token, right: Expr) -> Self {
+        Expr::Unary {
+            operator,
+            right: Box::new(right),
+        }
+    }
+
+    pub fn binary(left: Expr, operator: Token, right: Expr) -> Self {
+        Expr::Binary {
+            left: Box::new(left),
+            operator,
+            right: Box::new(right),
+        }
+    }
+
+    pub fn grouping(expression: Expr) -> Self {
+        Expr::Grouping {
+            expression: Box::new(expression),
+        }
+    }
+}
