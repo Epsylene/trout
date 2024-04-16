@@ -1,4 +1,6 @@
-use crate::token::Token;
+use crate::token::{Token, TokenKind};
+use crate::error::Error;
+use crate::ast::*;
 
 // The job of the scanner (or lexer) is to take a string of
 // characters and convert it into a series of tokens. The job
@@ -47,11 +49,147 @@ use crate::token::Token;
 //  unary      := ( "!" | "-" ) unary | primary
 //  primary    := NUMBER | STRING | "true" | "false" | "nil" | "(" expression ")"
 //
-// Lastly, note that there is no left-recursion in the grammar
-// (rules in the form "s := s ..."), which we would not be able
-// to parse without entering an infinite recursive loop. 
+// Starting from the lowest precedence (the equality), we work
+// our way up to primary expressions, which are juste literals
+// or a grouping (closing the group of rules). Note that there
+// is no left-recursion in the grammar (rules in the form "s :=
+// s ..."), which we would not be able to parse without
+// entering an infinite recursive loop. 
 
 struct Parser {
     tokens: Vec<Token>,
     current: usize,
+}
+
+impl Parser {
+    fn new(tokens: Vec<Token>) -> Self {
+        Parser { tokens, current: 0 }
+    }
+
+    fn match_next(&self, kind: TokenKind) -> bool {
+        !self.is_at_end() && self.zero().kind == kind
+    }
+
+    fn matches(&self, tokens: &[TokenKind]) -> bool {
+        tokens.iter().any(|&kind| self.match_next(kind))
+    }
+
+    fn advance(&mut self) -> Token {
+        if !self.is_at_end() {
+            self.current += 1;
+        }
+
+        self.previous()
+    }
+
+    fn is_at_end(&self) -> bool {
+        self.zero().kind == TokenKind::Eof
+    }
+
+    fn zero(&self) -> Token {
+        self.tokens[self.current].clone()
+    }
+
+    fn previous(&self) -> Token {
+        self.tokens[self.current - 1].clone()
+    }
+
+    fn expression(&mut self) -> Expr {
+        // expression := equality
+        self.equality()
+    }
+
+    fn equality(&mut self) -> Expr {
+        // equality := comparison ...
+        let mut expr = self.comparison();
+
+        // ... ( ( "!=" | "==" ) comparison )*
+        while self.matches(&[TokenKind::BangEqual, TokenKind::EqualEqual]) {
+            let operator = self.zero();
+            let right = self.comparison();
+            expr = Expr::binary(expr, operator, right);
+            
+            self.advance();
+        }
+
+        expr
+    }
+
+    fn comparison(&mut self) -> Expr {
+        // comparison := term ...
+        let mut expr = self.term();
+
+        // ... ( ( ">" | ">=" | "<" | "<=" ) term )*
+        while self.matches(&[TokenKind::Greater, TokenKind::GreaterEqual, TokenKind::Less, TokenKind::LessEqual]) {
+            let operator = self.zero();
+            let right = self.term();
+            expr = Expr::binary(expr, operator, right);
+
+            self.advance();
+        }
+
+        expr
+    }
+
+    fn term(&mut self) -> Expr {
+        // term := factor ( ( "-" | "+" ) factor )*
+        let mut expr = self.factor();
+
+        while self.matches(&[TokenKind::Minus, TokenKind::Plus]) {
+            let operator = self.previous();
+            let right = self.factor();
+            expr = Expr::binary(expr, operator, right);
+
+            self.advance();
+        }
+
+        expr
+    }
+
+    fn factor(&mut self) -> Expr {
+        // factor := unary ( ( "/" | "*" ) unary )*
+        let mut expr = self.unary();
+
+        while self.matches(&[TokenKind::Slash, TokenKind::Star]) {
+            let operator = self.previous();
+            let right = self.unary();
+            expr = Expr::binary(expr, operator, right);
+        }
+
+        expr
+    }
+
+    fn unary(&mut self) -> Expr {
+        // unary := ( "!" | "-" ) unary | primary
+        if self.matches(&[TokenKind::Bang, TokenKind::Minus]) {
+            let operator = self.previous();
+            let right = self.unary();
+            
+            Expr::unary(operator, right)
+        } else {
+            self.primary()
+        }
+    }
+
+    fn primary(&mut self) -> Expr {
+        // primary := NUMBER | STRING | "true" | "false" | "nil" | "(" expression ")"
+        if self.matches(&[TokenKind::Number, TokenKind::String, TokenKind::True, TokenKind::False, TokenKind::Nil]) {
+            let t = self.advance();
+            
+            Expr::literal(t)
+        } else if self.match_next(TokenKind::LeftParen) {
+            self.advance(); // for the "("
+            let expr = self.expression();
+            self.advance(); // for the ")"
+
+            Expr::grouping(expr)
+        } else {
+            // todo: add location (line, column) attributes to
+            // tokens so that we can report errors in the
+            // scanner too
+
+            // Err(Error::new("Expected expression".to_string()))
+            todo!()
+        }
+    }
 }

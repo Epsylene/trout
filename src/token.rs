@@ -27,7 +27,7 @@ pub enum TokenKind {
     Eof, Unknown,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum LiteralType {
     Nil,
     String(String),
@@ -41,7 +41,7 @@ pub enum LiteralType {
 // with a token type (separator, keyword, identifier, etc.) and
 // a literal value (float, int, string, nil...) in a context
 // (the line number).
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Token {
     pub kind: TokenKind,
     pub lexeme: String,
