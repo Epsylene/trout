@@ -74,6 +74,6 @@ impl Error {
 
 impl Display for Error {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(f, "{}:{}: {}", self.line, self.column, self.kind)
+        write!(f, "({}:{}) {}", self.line, self.column, self.kind)
     }
 }
