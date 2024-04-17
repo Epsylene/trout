@@ -1,5 +1,5 @@
 use crate::token::{Token, TokenKind};
-use crate::error::Error;
+use crate::error::{Error, ErrorKind};
 use crate::ast::*;
 
 // The job of the scanner (or lexer) is to take a string of
@@ -54,7 +54,7 @@ use crate::ast::*;
 // or a grouping (closing the group of rules). Note that there
 // is no left-recursion in the grammar (rules in the form "s :=
 // s ..."), which we would not be able to parse without
-// entering an infinite recursive loop. 
+// entering an infinite recursive loop.
 
 struct Parser {
     tokens: Vec<Token>,
@@ -70,7 +70,7 @@ impl Parser {
         !self.is_at_end() && self.zero().kind == kind
     }
 
-    fn matches(&self, tokens: &[TokenKind]) -> bool {
+    fn matches_one_in(&self, tokens: &[TokenKind]) -> bool {
         tokens.iter().any(|&kind| self.match_next(kind))
     }
 
@@ -94,102 +94,133 @@ impl Parser {
         self.tokens[self.current - 1].clone()
     }
 
-    fn expression(&mut self) -> Expr {
-        // expression := equality
+    fn expression(&mut self) -> Result<Expr, Error> {
+        // expression := equality 
+
+        // The first rule is that of any expression, which
+        // calls the rule for the lowest precedence operator,
+        // the equality.
         self.equality()
     }
 
-    fn equality(&mut self) -> Expr {
-        // equality := comparison ...
-        let mut expr = self.comparison();
+    fn equality(&mut self) -> Result<Expr, Error> {
+        // equality := comparison ( ( "!=" | "==" ) comparison )*
 
-        // ... ( ( "!=" | "==" ) comparison )*
-        while self.matches(&[TokenKind::BangEqual, TokenKind::EqualEqual]) {
-            let operator = self.zero();
-            let right = self.comparison();
+        // An equality is composed of a comparison...
+        let mut expr = self.comparison()?;
+
+        // ...followed by zero or more comparisons chained with
+        // != or == operators (meaning that expressions such as
+        // a == b == c are allowed, and are parsed
+        // unambiguously as c == b, then b == a, because of
+        // left-associativity).
+        while self.matches_one_in(&[TokenKind::BangEqual, TokenKind::EqualEqual]) {
+            // If there is match, advance to consume the
+            // operator, then call the comparison rule, and
+            // build a binary expression from the left
+            // expression, the operator and the right
+            // expression.
+            let operator = self.advance();
+            let right = self.comparison()?;
             expr = Expr::binary(expr, operator, right);
-            
-            self.advance();
         }
 
-        expr
+        Ok(expr)
     }
 
-    fn comparison(&mut self) -> Expr {
-        // comparison := term ...
-        let mut expr = self.term();
+    fn comparison(&mut self) -> Result<Expr, Error> {
+        // comparison := term ( ( ">" | ">=" | "<" | "<=" ) term )*
+        
+        // Much like the equality, a comparison has a term...
+        let mut expr = self.term()?;
 
-        // ... ( ( ">" | ">=" | "<" | "<=" ) term )*
-        while self.matches(&[TokenKind::Greater, TokenKind::GreaterEqual, TokenKind::Less, TokenKind::LessEqual]) {
-            let operator = self.zero();
-            let right = self.term();
+        // ...followed by either >, >=, < or <= and another
+        // term, zero or more times. In the same fashion,
+        // expressions such as a < b < c are parsed as b < c
+        // followed by a < b.
+        while self.matches_one_in(&[TokenKind::Greater, TokenKind::GreaterEqual, TokenKind::Less, TokenKind::LessEqual]) {
+            let operator = self.advance();
+            let right = self.term()?;
             expr = Expr::binary(expr, operator, right);
-
-            self.advance();
         }
 
-        expr
+        Ok(expr)
     }
 
-    fn term(&mut self) -> Expr {
+    fn term(&mut self) -> Result<Expr, Error> {
         // term := factor ( ( "-" | "+" ) factor )*
-        let mut expr = self.factor();
 
-        while self.matches(&[TokenKind::Minus, TokenKind::Plus]) {
-            let operator = self.previous();
-            let right = self.factor();
+        // Then, a term is the composition of a factor...
+        let mut expr = self.factor()?;
+
+        // ...with another factor by either the + or -
+        // operator, zero or more times.
+        while self.matches_one_in(&[TokenKind::Minus, TokenKind::Plus]) {
+            let operator = self.advance();
+            let right = self.factor()?;
             expr = Expr::binary(expr, operator, right);
-
-            self.advance();
         }
 
-        expr
+        Ok(expr)
     }
 
-    fn factor(&mut self) -> Expr {
+    fn factor(&mut self) -> Result<Expr, Error> {
         // factor := unary ( ( "/" | "*" ) unary )*
-        let mut expr = self.unary();
 
-        while self.matches(&[TokenKind::Slash, TokenKind::Star]) {
-            let operator = self.previous();
-            let right = self.unary();
+        // And a factor, is a unary expression...
+        let mut expr = self.unary()?;
+
+        // ...a / or * and another unary expression, zero or
+        // more times.
+        while self.matches_one_in(&[TokenKind::Slash, TokenKind::Star]) {
+            let operator = self.advance();
+            let right = self.unary()?;
             expr = Expr::binary(expr, operator, right);
         }
 
-        expr
+        Ok(expr)
     }
 
-    fn unary(&mut self) -> Expr {
+    fn unary(&mut self) -> Result<Expr, Error> {
         // unary := ( "!" | "-" ) unary | primary
-        if self.matches(&[TokenKind::Bang, TokenKind::Minus]) {
-            let operator = self.previous();
-            let right = self.unary();
+
+        // A unary expression is first a ! or - operator
+        // followed by another unary expression, or simply a
+        // primary expression.
+        if self.matches_one_in(&[TokenKind::Bang, TokenKind::Minus]) {
+            let operator = self.advance();
+            let right = self.unary()?;
             
-            Expr::unary(operator, right)
+            Ok(Expr::unary(operator, right))
         } else {
             self.primary()
         }
     }
 
-    fn primary(&mut self) -> Expr {
+    fn primary(&mut self) -> Result<Expr, Error> {
         // primary := NUMBER | STRING | "true" | "false" | "nil" | "(" expression ")"
-        if self.matches(&[TokenKind::Number, TokenKind::String, TokenKind::True, TokenKind::False, TokenKind::Nil]) {
-            let t = self.advance();
-            
-            Expr::literal(t)
+        
+        // And finally, a primary expression is either a
+        // number, a string, true, false, nil or the grouping
+        // of an expression (making it all come full circle!)
+        if self.matches_one_in(&[TokenKind::Number, TokenKind::String, TokenKind::True, TokenKind::False, TokenKind::Nil]) {
+            Ok(Expr::literal(self.advance())) // consume the literal token
         } else if self.match_next(TokenKind::LeftParen) {
             self.advance(); // for the "("
-            let expr = self.expression();
+            let expr = self.expression()?;
             self.advance(); // for the ")"
 
-            Expr::grouping(expr)
+            Ok(Expr::grouping(expr))
         } else {
-            // todo: add location (line, column) attributes to
-            // tokens so that we can report errors in the
-            // scanner too
-
-            // Err(Error::new("Expected expression".to_string()))
-            todo!()
+            let t = self.advance();
+            Err(Error::new(&t.location, ErrorKind::UnknownPrimary(t.lexeme)))
         }
+
+        // The recursive descent ends here (or begins again at
+        // the top level if the primary expression is a
+        // grouping). Note in particular that recursive descent
+        // parsers like this one, which descends the tree while
+        // only looking ahead in the token list, are termed
+        // "predictive parsers".
     }
 }

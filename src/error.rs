@@ -26,11 +26,15 @@ impl Display for AppError {
 
 #[derive(Debug)]
 pub enum ErrorKind {
+    // Scanner
     LexemeOutOfBounds(usize, usize, usize),
     FloatParseError(String),
     IntParseError(String),
     UnexpectedCharacter(char),
     NotValidUTF8,
+
+    // Parser
+    UnknownPrimary(String),
 }
 
 impl Display for ErrorKind {
@@ -50,6 +54,10 @@ impl Display for ErrorKind {
             }
             ErrorKind::UnexpectedCharacter(character) => {
                 write!(f, "Unexpected character: {}", character)
+            }
+
+            ErrorKind::UnknownPrimary(lexeme) => {
+                write!(f, "Token {} is not a known primary (number, string, true, false, nil, or a grouping expression)", lexeme)
             }
         }
     }
