@@ -36,6 +36,18 @@ pub enum LiteralType {
     Bool(bool),
 }
 
+#[derive(Clone, Debug, PartialEq)]
+pub struct Location {
+    pub line: u32,
+    pub column: u32,
+}
+
+impl From<(u32, u32)> for Location {
+    fn from((line, column): (u32, u32)) -> Self {
+        Location { line, column }
+    }
+}
+
 // Token struct: a token is a group of characters having
 // collective meaning. It is a string (the lexeme) identified
 // with a token type (separator, keyword, identifier, etc.) and
@@ -46,22 +58,25 @@ pub struct Token {
     pub kind: TokenKind,
     pub lexeme: String,
     pub literal: LiteralType,
+    pub location: Location,
 }
 
 impl Token {
-    pub fn new(kind: TokenKind, lexeme: String, literal: LiteralType) -> Self {
+    pub fn new(kind: TokenKind, lexeme: String, literal: LiteralType, location: Location) -> Self {
         Token {
             kind,
             lexeme,
             literal,
+            location,
         }
     }
 
-    pub fn eof() -> Self {
+    pub fn eof(eof: Location) -> Self {
         Token {
             kind: TokenKind::Eof,
             lexeme: '\0'.to_string(),
             literal: LiteralType::Nil,
+            location: eof,
         }
     }
 }

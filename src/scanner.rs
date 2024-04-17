@@ -1,4 +1,4 @@
-use crate::token::*;
+use crate::token::{Token, TokenKind, LiteralType, Location};
 use crate::error::{Error, ErrorKind};
 
 // A source code is a string of characters from which we want
@@ -38,6 +38,24 @@ impl Cursor {
         }
     }
 
+    fn token_start(&self) -> Location {
+        Location {
+            line: self.line,
+            column: self.column_at_start(),
+        }
+    }
+
+    fn token_end(&self) -> Location {
+        Location {
+            line: self.line,
+            column: self.column + 1,
+        }
+    }
+
+    fn column_at_start(&self) -> u32 {
+        self.column - (self.current - self.start - 1) as u32
+    }
+
     fn reset_start(&mut self) {
         self.start = self.current;
     }
@@ -53,7 +71,7 @@ impl Cursor {
 
     fn newline(&mut self) {
         self.line += 1;
-        self.column = 1;
+        self.column = 0;
     }
 }
 
@@ -100,7 +118,7 @@ impl Scanner {
         }
 
         // We add an EOF token at the end of the list as well.
-        self.tokens.push(Token::eof());
+        self.tokens.push(Token::eof(self.cursor.token_end()));
 
         match errors.len() {
             0 => Ok(()),
@@ -164,7 +182,7 @@ impl Scanner {
             //   unknown character.
             _ => {
                 return Err(Error::new(
-                    &self.cursor,
+                    &self.cursor.token_start(),
                     ErrorKind::UnexpectedCharacter(c),
                 ));
             },
@@ -248,14 +266,14 @@ impl Scanner {
         // tokenisation.
         let lexeme = self.source.get(start..end)
             .ok_or(Error::new(
-                &self.cursor, 
+                &self.cursor.token_start(), 
                 ErrorKind::LexemeOutOfBounds(start, end, self.cursor.eof)
             )
         )?;
         
         let lexeme = std::str::from_utf8(lexeme).map_err(|_|
             Error::new(
-                &self.cursor, 
+                &self.cursor.token_start(), 
                 ErrorKind::NotValidUTF8
             )
         )?;
@@ -282,6 +300,7 @@ impl Scanner {
             kind,
             lexeme.to_string(),
             LiteralType::Nil,
+            self.cursor.token_start(),
         ))
     }
 
@@ -290,7 +309,7 @@ impl Scanner {
         self.eat_while(is_num);
 
         let lexeme;
-        let lit;
+        let literal;
 
         // At this point, we have either reached the end of the
         // number (in which case it is an integer) or a decimal
@@ -307,12 +326,12 @@ impl Scanner {
             lexeme = self.get_current_lexeme()?;
             let float = lexeme.parse::<f32>()
                 .map_err(|_| Error::new(
-                    &self.cursor, 
+                    &self.cursor.token_start(), 
                     ErrorKind::FloatParseError(lexeme.clone())
                 )
             )?;
 
-            lit = LiteralType::Float(float);
+            literal = LiteralType::Float(float);
         } else {
             // Same, but parsing as an integer (specifically,
             // an unsigned 32-bit integer: negative numbers are
@@ -321,18 +340,19 @@ impl Scanner {
             lexeme = self.get_current_lexeme()?;
             let int = lexeme.parse::<u32>()
                 .map_err(|_| Error::new(
-                    &self.cursor, 
+                    &self.cursor.token_start(), 
                     ErrorKind::IntParseError(lexeme.clone())
                 )
             )?;
 
-            lit = LiteralType::Int(int);
+            literal = LiteralType::Int(int);
         }
 
         Ok(Token::new(
             TokenKind::Number,
             lexeme.to_string(),
-            lit,
+            literal,
+            self.cursor.token_start(),
         ))
     }
 
@@ -352,6 +372,7 @@ impl Scanner {
             TokenKind::String,
             lexeme.to_string(),
             literal,
+            self.cursor.token_start(),
         ))
     }
 
@@ -363,6 +384,7 @@ impl Scanner {
             TokenKind::LineComment,
             "".to_string(),
             LiteralType::Nil,
+            self.cursor.token_start(),
         ))
     }
 
@@ -375,6 +397,7 @@ impl Scanner {
             token_type,
             lexeme.to_string(),
             LiteralType::Nil,
+            self.cursor.token_start(),
         ))
     }
 }
@@ -429,11 +452,11 @@ mod tests {
         scanner.scan_tokens().unwrap();
 
         let expected = vec![
-            Token::new(TokenKind::Var, "var".to_string(), LiteralType::Nil),
-            Token::new(TokenKind::Identifier, "a".to_string(), LiteralType::Nil),
-            Token::new(TokenKind::Equal, "=".to_string(), LiteralType::Nil),
-            Token::new(TokenKind::Number, "0".to_string(), LiteralType::Int(0)),
-            Token::eof(),
+            Token::new(TokenKind::Var, "var".to_string(), LiteralType::Nil, (1, 1).into()),
+            Token::new(TokenKind::Identifier, "a".to_string(), LiteralType::Nil, (1, 5).into()),
+            Token::new(TokenKind::Equal, "=".to_string(), LiteralType::Nil, (1, 7).into()),
+            Token::new(TokenKind::Number, "0".to_string(), LiteralType::Int(0), (1, 9).into()),
+            Token::eof((1, 10).into()),
         ];
 
         assert_eq!(scanner.tokens, expected);
@@ -446,11 +469,11 @@ mod tests {
         scanner.scan_tokens().unwrap();
 
         let expected = vec![
-            Token::new(TokenKind::Number, "123".to_string(), LiteralType::Int(123)),
-            Token::new(TokenKind::Number, "123.456".to_string(), LiteralType::Float(123.456)),
-            Token::new(TokenKind::Number, "3".to_string(), LiteralType::Int(3)),
-            Token::new(TokenKind::Dot, ".".to_string(), LiteralType::Nil),
-            Token::eof(),
+            Token::new(TokenKind::Number, "123".to_string(), LiteralType::Int(123), (1, 1).into()),
+            Token::new(TokenKind::Number, "123.456".to_string(), LiteralType::Float(123.456), (1, 5).into()),
+            Token::new(TokenKind::Number, "3".to_string(), LiteralType::Int(3), (1, 13).into()),
+            Token::new(TokenKind::Dot, ".".to_string(), LiteralType::Nil, (1, 14).into()),
+            Token::eof((1, 15).into()),
         ];
 
         assert_eq!(scanner.tokens, expected);
@@ -463,8 +486,8 @@ mod tests {
         scanner.scan_tokens().unwrap();
 
         let expected = vec![
-            Token::new(TokenKind::String, "Hello, world!".to_string(), LiteralType::String("Hello, world!".to_string())),
-            Token::eof(),
+            Token::new(TokenKind::String, "Hello, world!".to_string(), LiteralType::String("Hello, world!".to_string()), (1, 1).into()),
+            Token::eof((1, 16).into()),
         ];
 
         assert_eq!(scanner.tokens, expected);

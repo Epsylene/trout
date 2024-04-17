@@ -1,5 +1,5 @@
 use std::fmt::Display;
-use crate::scanner::Cursor;
+use crate::token::Location;
 
 #[derive(Debug)]
 pub enum AppError {
@@ -63,10 +63,10 @@ pub struct Error {
 }
 
 impl Error {
-    pub fn new(cursor: &Cursor, kind: ErrorKind) -> Self {
+    pub fn new(location: &Location, kind: ErrorKind) -> Self {
         Error {
-            line: cursor.line,
-            column: cursor.column,
+            line: location.line,
+            column: location.column,
             kind,
         }
     }
