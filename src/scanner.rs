@@ -1,5 +1,5 @@
 use crate::token::{Token, TokenKind, LiteralType, Location};
-use crate::error::{Error, ErrorKind};
+use crate::error::{Error, ErrorKind, Result};
 
 // A source code is a string of characters from which we want
 // to extract meaning. The first step in doing so is
@@ -255,11 +255,11 @@ impl Scanner {
         }
     }
 
-    fn get_current_lexeme(&self) -> Result<String, Error> {
+    fn get_current_lexeme(&self) -> Result<String> {
         self.get_lexeme(self.cursor.start, self.cursor.current)
     }
 
-    fn get_lexeme(&self, start: usize, end: usize) -> Result<String, Error> {
+    fn get_lexeme(&self, start: usize, end: usize) -> Result<String> {
         // The lexeme, that is, the string of characters that
         // make up the token, is the slice of the source code
         // between the start and end positions found during
@@ -281,7 +281,7 @@ impl Scanner {
         Ok(lexeme.to_string())
     }
 
-    fn get_identifier_token(&mut self) -> Result<Token, Error> {
+    fn get_identifier_token(&mut self) -> Result<Token> {
         // Eat while the character is alphanumeric (letter or
         // number). Here is displayed the principle of "maximal
         // munch": when two lexical grammar rules can both
@@ -304,7 +304,7 @@ impl Scanner {
         ))
     }
 
-    fn get_number_token(&mut self) -> Result<Token, Error> {
+    fn get_number_token(&mut self) -> Result<Token> {
         // First, consume all digits encountered.
         self.eat_while(is_num);
 
@@ -356,7 +356,7 @@ impl Scanner {
         ))
     }
 
-    fn get_string_token(&mut self) -> Result<Token, Error> {
+    fn get_string_token(&mut self) -> Result<Token> {
         // Eat until the closing " is reached. Note here that
         // this means that multiline strings are supported.
         self.eat_while(|c| c != '"');
@@ -376,7 +376,7 @@ impl Scanner {
         ))
     }
 
-    fn get_comment_token(&mut self) -> Result<Token, Error> {
+    fn get_comment_token(&mut self) -> Result<Token> {
         // A line comment goes until the end of the line.
         self.eat_while(|c| c != '\n');
         
@@ -388,7 +388,7 @@ impl Scanner {
         ))
     }
 
-    fn get_token(&self, token_type: TokenKind) -> Result<Token, Error> {
+    fn get_token(&self, token_type: TokenKind) -> Result<Token> {
         // The lexeme is found between the start position
         // (marker) and the current position (pos).
         let lexeme = self.get_current_lexeme()?;

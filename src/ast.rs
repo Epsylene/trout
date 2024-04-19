@@ -1,4 +1,4 @@
-use crate::token::Token;
+use crate::token::{LiteralType, Token};
 
 // We have a source code, which is a string of characters from
 // which we derive a series of tokens -- the vocabulary of our
@@ -71,7 +71,7 @@ use crate::token::Token;
 //   operator)
 // - A grouping (an expression enclosed in parentheses)
 pub enum Expr {
-    Literal { value: Token },
+    Literal { value: LiteralType },
     Unary { operator: Token, right: Box<Expr> },
     Binary { left: Box<Expr>, operator: Token, right: Box<Expr> },
     Grouping { expression: Box<Expr> },
@@ -79,7 +79,7 @@ pub enum Expr {
 
 impl Expr {
     pub fn literal(value: Token) -> Self {
-        Expr::Literal { value }
+        Expr::Literal { value: value.literal }
     }
 
     pub fn unary(operator: Token, right: Expr) -> Self {

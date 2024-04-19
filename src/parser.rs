@@ -1,6 +1,6 @@
 use crate::token::{Token, TokenKind};
-use crate::error::{Error, ErrorKind};
-use crate::ast::*;
+use crate::error::{Error, ErrorKind, Result};
+use crate::ast::Expr;
 
 // The job of the scanner (or lexer) is to take a string of
 // characters and convert it into a series of tokens. The job
@@ -94,7 +94,7 @@ impl Parser {
         self.tokens[self.current - 1].clone()
     }
 
-    fn expression(&mut self) -> Result<Expr, Error> {
+    fn expression(&mut self) -> Result<Expr> {
         // expression := equality 
 
         // The first rule is that of any expression, which
@@ -103,7 +103,7 @@ impl Parser {
         self.equality()
     }
 
-    fn equality(&mut self) -> Result<Expr, Error> {
+    fn equality(&mut self) -> Result<Expr> {
         // equality := comparison ( ( "!=" | "==" ) comparison )*
 
         // An equality is composed of a comparison...
@@ -112,7 +112,7 @@ impl Parser {
         // ...followed by zero or more comparisons chained with
         // != or == operators (meaning that expressions such as
         // a == b == c are allowed, and are parsed
-        // unambiguously as c == b, then b == a, because of
+        // unambiguously as (a == b) == c, because of
         // left-associativity).
         while self.matches_one_in(&[TokenKind::BangEqual, TokenKind::EqualEqual]) {
             // If there is match, advance to consume the
@@ -128,7 +128,7 @@ impl Parser {
         Ok(expr)
     }
 
-    fn comparison(&mut self) -> Result<Expr, Error> {
+    fn comparison(&mut self) -> Result<Expr> {
         // comparison := term ( ( ">" | ">=" | "<" | "<=" ) term )*
         
         // Much like the equality, a comparison has a term...
@@ -136,8 +136,8 @@ impl Parser {
 
         // ...followed by either >, >=, < or <= and another
         // term, zero or more times. In the same fashion,
-        // expressions such as a < b < c are parsed as b < c
-        // followed by a < b.
+        // expressions such as a < b < c are parsed as (a < b)
+        // < c.
         while self.matches_one_in(&[TokenKind::Greater, TokenKind::GreaterEqual, TokenKind::Less, TokenKind::LessEqual]) {
             let operator = self.advance();
             let right = self.term()?;
@@ -147,7 +147,7 @@ impl Parser {
         Ok(expr)
     }
 
-    fn term(&mut self) -> Result<Expr, Error> {
+    fn term(&mut self) -> Result<Expr> {
         // term := factor ( ( "-" | "+" ) factor )*
 
         // Then, a term is the composition of a factor...
@@ -164,7 +164,7 @@ impl Parser {
         Ok(expr)
     }
 
-    fn factor(&mut self) -> Result<Expr, Error> {
+    fn factor(&mut self) -> Result<Expr> {
         // factor := unary ( ( "/" | "*" ) unary )*
 
         // And a factor, is a unary expression...
@@ -181,7 +181,7 @@ impl Parser {
         Ok(expr)
     }
 
-    fn unary(&mut self) -> Result<Expr, Error> {
+    fn unary(&mut self) -> Result<Expr> {
         // unary := ( "!" | "-" ) unary | primary
 
         // A unary expression is first a ! or - operator
@@ -197,7 +197,7 @@ impl Parser {
         }
     }
 
-    fn primary(&mut self) -> Result<Expr, Error> {
+    fn primary(&mut self) -> Result<Expr> {
         // primary := NUMBER | STRING | "true" | "false" | "nil" | "(" expression ")"
         
         // And finally, a primary expression is either a
@@ -213,7 +213,7 @@ impl Parser {
             Ok(Expr::grouping(expr))
         } else {
             let t = self.advance();
-            Err(Error::new(&t.location, ErrorKind::UnknownPrimary(t.lexeme)))
+            Err(Error::new(&t.location, ErrorKind::IncorrectPrimary(self.zero().lexeme.clone())))
         }
 
         // The recursive descent ends here (or begins again at

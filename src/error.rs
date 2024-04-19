@@ -34,7 +34,7 @@ pub enum ErrorKind {
     NotValidUTF8,
 
     // Parser
-    UnknownPrimary(String),
+    IncorrectPrimary(String),
 }
 
 impl Display for ErrorKind {
@@ -56,8 +56,8 @@ impl Display for ErrorKind {
                 write!(f, "Unexpected character: {}", character)
             }
 
-            ErrorKind::UnknownPrimary(lexeme) => {
-                write!(f, "Token {} is not a known primary (number, string, true, false, nil, or a grouping expression)", lexeme)
+            ErrorKind::IncorrectPrimary(lexeme) => {
+                write!(f, "Token {} did not match a literal (number, string, true, false, nil) or a grouping", lexeme)
             }
         }
     }
@@ -85,3 +85,5 @@ impl Display for Error {
         write!(f, "({}:{}) {}", self.line, self.column, self.kind)
     }
 }
+
+pub type Result<T, E = Error> = std::result::Result<T, E>;
