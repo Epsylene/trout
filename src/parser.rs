@@ -66,8 +66,8 @@ impl Parser {
         Parser { tokens, current: 0 }
     }
 
-    fn match_next(&self, kind: TokenKind) -> bool {
-        !self.is_at_end() && self.zero().kind == kind
+    fn match_next(&self, expected: TokenKind) -> bool {
+        !self.is_at_end() && self.zero().kind == expected
     }
 
     fn matches_one_in(&self, tokens: &[TokenKind]) -> bool {
@@ -80,6 +80,14 @@ impl Parser {
         }
 
         self.previous()
+    }
+
+    fn consume(&mut self, expected: TokenKind, error: ErrorKind) -> Result<Token> {
+        if self.match_next(expected) {
+            Ok(self.advance())
+        } else {
+            Err(Error::new(&self.zero().location, error))
+        }
     }
 
     fn is_at_end(&self) -> bool {
@@ -204,23 +212,33 @@ impl Parser {
         // number, a string, true, false, nil or the grouping
         // of an expression (making it all come full circle!)
         if self.matches_one_in(&[TokenKind::Number, TokenKind::String, TokenKind::True, TokenKind::False, TokenKind::Nil]) {
-            Ok(Expr::literal(self.advance())) // consume the literal token
+            // If it is a literal, consume it right away
+            Ok(Expr::literal(self.advance()))
         } else if self.match_next(TokenKind::LeftParen) {
-            self.advance(); // for the "("
+            // If the matched token is a left paren, the
+            // expression is a grouping. We first have to
+            // consume the left paren, take the expression...
+            self.advance();
             let expr = self.expression()?;
-            self.advance(); // for the ")"
+            // ...then consume the right paren (while checking
+            // that it is really there!)
+            self.consume(TokenKind::RightParen, ErrorKind::ExpectedRightParen)?;
 
             Ok(Expr::grouping(expr))
         } else {
+            // If it is none of the above, there is something
+            // wrong going on.
             let t = self.advance();
             Err(Error::new(&t.location, ErrorKind::IncorrectPrimary(self.zero().lexeme.clone())))
         }
 
         // The recursive descent ends here (or begins again at
-        // the top level if the primary expression is a
-        // grouping). Note in particular that recursive descent
-        // parsers like this one, which descends the tree while
-        // only looking ahead in the token list, are termed
-        // "predictive parsers".
+        // the top level, in the case of a grouping). Note in
+        // particular that recursive descent parsers like this
+        // one, which descends the tree while only looking
+        // ahead in the token list, are termed because of this
+        // "predictive parsers". This is the simplest form of
+        // parser (limited to LL(k) grammars), and it runs in
+        // linear time, which is why it's widely used.
     }
 }
