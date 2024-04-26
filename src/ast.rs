@@ -1,3 +1,4 @@
+use std::fmt::{Display, Debug};
 use crate::token::{LiteralType, Token};
 
 // We have a source code, which is a string of characters from
@@ -71,7 +72,7 @@ use crate::token::{LiteralType, Token};
 //   operator)
 // - A grouping (an expression enclosed in parentheses)
 pub enum Expr {
-    Literal { value: LiteralType },
+    Literal { value: Token },
     Unary { operator: Token, right: Box<Expr> },
     Binary { left: Box<Expr>, operator: Token, right: Box<Expr> },
     Grouping { expression: Box<Expr> },
@@ -79,7 +80,7 @@ pub enum Expr {
 
 impl Expr {
     pub fn literal(value: Token) -> Self {
-        Expr::Literal { value: value.literal }
+        Expr::Literal { value }
     }
 
     pub fn unary(operator: Token, right: Expr) -> Self {
@@ -100,6 +101,28 @@ impl Expr {
     pub fn grouping(expression: Expr) -> Self {
         Expr::Grouping {
             expression: Box::new(expression),
+        }
+    }
+}
+
+impl Display for Expr {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        match self {
+            Expr::Literal { value } => write!(f, "{}", value.lexeme),
+            Expr::Unary { operator, right } => write!(f, "({} {})", operator.lexeme, right),
+            Expr::Binary { left, operator, right } => write!(f, "({} {} {})", operator.lexeme, left, right),
+            Expr::Grouping { expression } => write!(f, "(group {})", expression),
+        }
+    }
+}
+
+impl Debug for Expr {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        match self {
+            Expr::Literal { value } => write!(f, "{:?}", value),
+            Expr::Unary { operator, right } => write!(f, "({:?} {:?})", operator.kind, right),
+            Expr::Binary { left, operator, right } => write!(f, "({:?} {:?} {:?})", operator.kind, left, right),
+            Expr::Grouping { expression } => write!(f, "(group {:?})", expression),
         }
     }
 }
