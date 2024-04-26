@@ -111,7 +111,7 @@ impl Display for Expr {
             Expr::Literal { value } => write!(f, "{}", value.lexeme),
             Expr::Unary { operator, right } => write!(f, "({} {})", operator.lexeme, right),
             Expr::Binary { left, operator, right } => write!(f, "({} {} {})", operator.lexeme, left, right),
-            Expr::Grouping { expression } => write!(f, "(group {})", expression),
+            Expr::Grouping { expression } => write!(f, "{}", expression),
         }
     }
 }
