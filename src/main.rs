@@ -1,5 +1,6 @@
 use std::{env, fs, io, io::Write};
 use scanner::Scanner;
+use parser::Parser;
 use error::AppError;
 
 mod token;
@@ -50,7 +51,13 @@ fn run_file(path: &str) -> Result<(), AppError> {
 
 fn run(source: &str) -> Result<(), AppError> {
     let mut scan = Scanner::new(source);
-    scan.scan_tokens().map_err(AppError::Compiler)?;
+    let tokens = scan.scan_tokens().map_err(AppError::Compiler)?;
+    
+    let mut parser = Parser::new(tokens);
+    match parser.parse() {
+        Ok(expr) => println!("{}", expr),
+        Err(e) => eprintln!("{}", e),
+    }
 
     Ok(())
 }

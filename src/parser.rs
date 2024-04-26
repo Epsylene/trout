@@ -56,13 +56,13 @@ use crate::ast::Expr;
 // s ..."), which we would not be able to parse without
 // entering an infinite recursive loop.
 
-struct Parser {
+pub struct Parser {
     tokens: Vec<Token>,
     current: usize,
 }
 
 impl Parser {
-    fn new(tokens: Vec<Token>) -> Self {
+    pub fn new(tokens: Vec<Token>) -> Self {
         Parser { tokens, current: 0 }
     }
 
@@ -100,6 +100,12 @@ impl Parser {
 
     fn previous(&self) -> Token {
         self.tokens[self.current - 1].clone()
+    }
+
+    pub fn parse(&mut self) -> Result<Expr> {
+        // The top-level rule, the first to be called, is the
+        // expression.
+        self.expression()
     }
 
     fn expression(&mut self) -> Result<Expr> {

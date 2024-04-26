@@ -77,7 +77,6 @@ impl Cursor {
 
 pub struct Scanner {
     pub source: Vec<u8>,
-    pub tokens: Vec<Token>,
     cursor: Cursor,
 }
 
@@ -92,25 +91,34 @@ impl Scanner {
 
         Scanner {
             source: chars,
-            tokens: Vec::new(),
             cursor: Cursor::new(source.len()),
         }
     }
 
-    pub fn scan_tokens(&mut self) -> Result<(), Vec<Error>> {
-        let mut errors: Vec<Error> = Vec::new();
+    pub fn scan_tokens(&mut self) -> Result<Vec<Token>, Vec<Error>> {
+        let mut tokens = vec![];
+        let mut errors = vec![];
         
         // Starting at the beginning of the source code, we
         // read characters until the EOF is reached.
         while !self.cursor.at_eof() {
             // At the start of each iteration, we set the
             // 'start' marker to the current position of the
-            // cursor, get the token starting at this position,
-            // and push it to the list of tokens.
+            // cursor...
             self.cursor.reset_start();
-            if let Err(e) = self.next_token() {
-                errors.push(e);
+
+            // ...get the token starting at this position, and
+            // push it to the list of tokens. Errors during
+            // lexing are pushed to a vector, so that they are
+            // all propagated together at the end. Tokens are
+            // options, because we do not want to keep the ones
+            // corresponding to whitespace in the code.
+            match self.next_token() {
+                Ok(Some(token)) => tokens.push(token),
+                Err(e) => errors.push(e),
+                _ => (),
             }
+            
             // By this point, the cursor has been advanced by
             // the number of characters of the token, and we
             // can get the next token during the next iteration
@@ -118,15 +126,15 @@ impl Scanner {
         }
 
         // We add an EOF token at the end of the list as well.
-        self.tokens.push(Token::eof(self.cursor.token_end()));
+        tokens.push(Token::eof(self.cursor.token_end()));
 
         match errors.len() {
-            0 => Ok(()),
+            0 => Ok(tokens),
             _ => Err(errors),
         }
     }
 
-    fn next_token(&mut self) -> Result<(), Error> {
+    fn next_token(&mut self) -> Result<Option<Token>, Error> {
         // First, we get the character at the current position
         // and advance the cursor by one.
         let c = self.advance();
@@ -199,11 +207,11 @@ impl Scanner {
 
         // If the token is neither whitespace nor a comment, we
         // add it to the list of tokens.
-        if !(matches!(kind, TokenKind::Whitespace | TokenKind::Newline | TokenKind::LineComment)) {
-            self.tokens.push(token);
+        if matches!(kind, TokenKind::Whitespace | TokenKind::Newline | TokenKind::LineComment) {
+            Ok(None)
+        } else {
+            Ok(Some(token))
         }
-
-        Ok(())
     }
 
     fn advance(&mut self) -> char {
@@ -449,7 +457,7 @@ mod tests {
     fn test_tokens() {
         let source = "var a = 0";
         let mut scanner = Scanner::new(source);
-        scanner.scan_tokens().unwrap();
+        let tokens = scanner.scan_tokens().unwrap();
 
         let expected = vec![
             Token::new(TokenKind::Var, "var".to_string(), LiteralType::Nil, (1, 1).into()),
@@ -459,14 +467,14 @@ mod tests {
             Token::eof((1, 10).into()),
         ];
 
-        assert_eq!(scanner.tokens, expected);
+        assert_eq!(tokens, expected);
     }
 
     #[test]
     fn test_numbers() {
         let source = "123 123.456 3.";
         let mut scanner = Scanner::new(source);
-        scanner.scan_tokens().unwrap();
+        let tokens = scanner.scan_tokens().unwrap();
 
         let expected = vec![
             Token::new(TokenKind::Number, "123".to_string(), LiteralType::Int(123), (1, 1).into()),
@@ -476,20 +484,20 @@ mod tests {
             Token::eof((1, 15).into()),
         ];
 
-        assert_eq!(scanner.tokens, expected);
+        assert_eq!(tokens, expected);
     }
 
     #[test]
     fn test_strings() {
         let source = "\"Hello, world!\"";
         let mut scanner = Scanner::new(source);
-        scanner.scan_tokens().unwrap();
+        let tokens = scanner.scan_tokens().unwrap();
 
         let expected = vec![
             Token::new(TokenKind::String, "Hello, world!".to_string(), LiteralType::String("Hello, world!".to_string()), (1, 1).into()),
             Token::eof((1, 16).into()),
         ];
 
-        assert_eq!(scanner.tokens, expected);
+        assert_eq!(tokens, expected);
     }
 }
