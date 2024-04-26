@@ -58,7 +58,7 @@ impl Display for ErrorKind {
             }
 
             ErrorKind::IncorrectPrimary(lexeme) => {
-                write!(f, "Token {} did not match a literal (number, string, true, false, nil) or a grouping", lexeme)
+                write!(f, "Token '{}' did not match a literal (number, string, true, false, nil) or a grouping", lexeme)
             }
             ErrorKind::ExpectedRightParen => {
                 write!(f, "Expected ')' after expression")

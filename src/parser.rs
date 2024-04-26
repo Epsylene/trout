@@ -234,8 +234,10 @@ impl Parser {
         } else {
             // If it is none of the above, there is something
             // wrong going on.
-            let t = self.advance();
-            Err(Error::new(&t.location, ErrorKind::IncorrectPrimary(self.zero().lexeme.clone())))
+            Err(Error::new(
+                &self.zero().location, 
+                ErrorKind::IncorrectPrimary(self.zero().lexeme))
+            )
         }
 
         // The recursive descent ends here (or begins again at
