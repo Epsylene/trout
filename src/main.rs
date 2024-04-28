@@ -8,6 +8,7 @@ mod scanner;
 mod error;
 mod ast;
 mod parser;
+mod interpreter;
 
 fn run_prompt() -> Result<(), AppError> {
     // REPL loop (Read-Eval-Print-Loop): a simple interactive
@@ -55,6 +56,8 @@ fn run(source: &str) -> Result<(), AppError> {
     
     let mut parser = Parser::new(tokens);
     match parser.parse() {
+        // todo: propagate error correctly (use map_err with a
+        // conversion between Error and Vec<Error>, perhaps)
         Ok(expr) => println!("{}", expr),
         Err(e) => eprintln!("{}", e),
     }

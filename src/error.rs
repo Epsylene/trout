@@ -36,6 +36,11 @@ pub enum ErrorKind {
     // Parser
     IncorrectPrimary(String),
     ExpectedRightParen,
+
+    // Interpreter
+    NotUnaryOperator(String),
+    NotBinaryOperator(String),
+    NotArithmetic,
 }
 
 impl Display for ErrorKind {
@@ -44,11 +49,11 @@ impl Display for ErrorKind {
             ErrorKind::LexemeOutOfBounds(start, end, eof) => {
                 write!(f, "Lexeme out of bounds: {}-{} (EOF at {})", start, end, eof)
             }
-            ErrorKind::FloatParseError(lexeme) => {
-                write!(f, "Error parsing float: {}", lexeme)
+            ErrorKind::FloatParseError(token) => {
+                write!(f, "Error parsing float: {}", token)
             }
-            ErrorKind::IntParseError(lexeme) => {
-                write!(f, "Error parsing int: {}", lexeme)
+            ErrorKind::IntParseError(token) => {
+                write!(f, "Error parsing int: {}", token)
             }
             ErrorKind::NotValidUTF8 => {
                 write!(f, "Character is not valid UTF-8")
@@ -57,11 +62,21 @@ impl Display for ErrorKind {
                 write!(f, "Unexpected character: {}", character)
             }
 
-            ErrorKind::IncorrectPrimary(lexeme) => {
-                write!(f, "Token '{}' did not match a literal (number, string, true, false, nil) or a grouping", lexeme)
+            ErrorKind::IncorrectPrimary(token) => {
+                write!(f, "Token '{}' did not match a literal (number, string, true, false, nil) or a grouping", token)
             }
             ErrorKind::ExpectedRightParen => {
                 write!(f, "Expected ')' after expression")
+            }
+
+            ErrorKind::NotUnaryOperator(token) => {
+                write!(f, "Token '{}' is not a unary operator", token)
+            }
+            ErrorKind::NotBinaryOperator(token) => {
+                write!(f, "Token '{}' is not a binary operator", token)
+            }
+            ErrorKind::NotArithmetic => {
+                write!(f, "Operands must be integers or floats")
             }
         }
     }
