@@ -346,7 +346,7 @@ impl Scanner {
             // handled as the combination of a - operator and a
             // number literal).
             lexeme = self.get_current_lexeme()?;
-            let int = lexeme.parse::<u32>()
+            let int = lexeme.parse::<i32>()
                 .map_err(|_| Error::new(
                     &self.cursor.token_start(), 
                     ErrorKind::IntParseError(lexeme.clone())

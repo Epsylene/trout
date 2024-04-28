@@ -32,7 +32,7 @@ pub enum LiteralType {
     Nil,
     String(String),
     Float(f32),
-    Int(u32),
+    Int(i32),
     Bool(bool),
 }
 
