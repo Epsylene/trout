@@ -99,6 +99,12 @@ impl Error {
     }
 }
 
+impl From<Error> for Vec<Error> {
+    fn from(error: Error) -> Self {
+        vec![error]
+    }
+}
+
 impl Display for Error {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         write!(f, "({}:{}) {}", self.line, self.column, self.kind)

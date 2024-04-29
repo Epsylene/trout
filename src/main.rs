@@ -1,8 +1,10 @@
 use std::{env, fs, io, io::Write};
+use interpreter::interpret;
 use scanner::Scanner;
 use parser::Parser;
 use error::AppError;
 
+mod literal;
 mod token;
 mod scanner;
 mod error;
@@ -55,12 +57,10 @@ fn run(source: &str) -> Result<(), AppError> {
     let tokens = scan.scan_tokens().map_err(AppError::Compiler)?;
     
     let mut parser = Parser::new(tokens);
-    match parser.parse() {
-        // todo: propagate error correctly (use map_err with a
-        // conversion between Error and Vec<Error>, perhaps)
-        Ok(expr) => println!("{}", expr),
-        Err(e) => eprintln!("{}", e),
-    }
+    let expr = parser.parse().map_err(|e| AppError::Compiler(e.into()))?;
+    let val = interpret(&expr).map_err(|e| AppError::Compiler(e.into()))?;
+
+    println!("{}\n", val);
 
     Ok(())
 }
