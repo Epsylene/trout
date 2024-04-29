@@ -63,7 +63,7 @@ impl Display for ErrorKind {
             }
 
             ErrorKind::IncorrectPrimary(token) => {
-                write!(f, "Token '{}' did not match a literal (number, string, true, false, nil) or a grouping", token)
+                write!(f, "Could not parse: token '{}' did not match a literal (number, string, true, false, nil) or a grouping", token)
             }
             ErrorKind::ExpectedRightParen => {
                 write!(f, "Expected ')' after expression")
@@ -76,7 +76,7 @@ impl Display for ErrorKind {
                 write!(f, "Token '{}' is not a binary operator", token)
             }
             ErrorKind::NotArithmetic => {
-                write!(f, "Operands must be integers or floats")
+                write!(f, "Operand(s) must be a number (int or float)")
             }
         }
     }
