@@ -1,3 +1,5 @@
+use crate::literal::LiteralType;
+
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum TokenKind {
     // Single-character tokens
@@ -25,15 +27,6 @@ pub enum TokenKind {
 
     // Special characters
     Eof, Unknown,
-}
-
-#[derive(Clone, Debug, PartialEq)]
-pub enum LiteralType {
-    Nil,
-    String(String),
-    Float(f32),
-    Int(i32),
-    Bool(bool),
 }
 
 #[derive(Clone, Debug, PartialEq)]

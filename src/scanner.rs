@@ -1,4 +1,5 @@
-use crate::token::{Token, TokenKind, LiteralType, Location};
+use crate::literal::LiteralType;
+use crate::token::{Token, TokenKind, Location};
 use crate::error::{Error, ErrorKind, Result};
 
 // A source code is a string of characters from which we want
