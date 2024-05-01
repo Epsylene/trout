@@ -1,6 +1,6 @@
 use std::fmt::{Display, Debug};
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, PartialEq)]
 pub enum LiteralType {
     Nil,
     String(String),

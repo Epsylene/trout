@@ -57,10 +57,8 @@ fn run(source: &str) -> Result<(), AppError> {
     let tokens = scan.scan_tokens().map_err(AppError::Compiler)?;
     
     let mut parser = Parser::new(tokens);
-    let expr = parser.parse().map_err(|e| AppError::Compiler(e.into()))?;
-    let val = interpret(&expr).map_err(|e| AppError::Compiler(e.into()))?;
-
-    println!("{}\n", val);
+    let program = parser.parse().map_err(|e| AppError::Compiler(e.into()))?;
+    interpret(&program).map_err(|e| AppError::Compiler(e.into()))?;
 
     Ok(())
 }

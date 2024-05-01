@@ -1,6 +1,6 @@
 use crate::token::{Token, TokenKind};
 use crate::error::{Error, ErrorKind, Result};
-use crate::ast::Expr;
+use crate::ast::{Expr, Stmt};
 
 // The job of the scanner (or lexer) is to take a string of
 // characters and convert it into a series of tokens. The job
@@ -38,8 +38,11 @@ use crate::ast::Expr;
 // 
 // To be able to "read" the precedence while parsing the
 // grammar, we need to write it so that each rule matches
-// expressions at a precedence level equal or higher to the
-// previous one. In the end, we get:
+// expressions at a precedence level equal or lower to the
+// following one, so that the parser calls the highest
+// precedence rule (the highest precedence operators) on the
+// leaves (literals) of the tree. Because equality < comparison
+// < term < factor < unary, we get the following grammar:
 //
 //  expression := equality
 //  equality   := comparison ( ( "!=" | "==" ) comparison )*
@@ -49,12 +52,26 @@ use crate::ast::Expr;
 //  unary      := ( "!" | "-" ) unary | primary
 //  primary    := NUMBER | STRING | "true" | "false" | "nil" | "(" expression ")"
 //
-// Starting from the lowest precedence (the equality), we work
-// our way up to primary expressions, which are juste literals
-// or a grouping (closing the group of rules). Note that there
-// is no left-recursion in the grammar (rules in the form "s :=
-// s ..."), which we would not be able to parse without
-// entering an infinite recursive loop.
+// Now, we want to extend this grammar with statements.
+// Expressions produce values, while statements express actions
+// to be carried out, like assignments, conditionals, or
+// functions. Thus, the topmost rule of our grammar (the
+// program itself) will be simply:
+// 
+//  program := statement* EOF
+//  statement := expr_stmt | print_stmt
+//  expr_stmt := expression ";"
+//  print_stmt := "print" expression ";"
+//
+// A program is a list of statements ending with an EOF token;
+// each statement is either an expression followed by ";", or
+// the keyword "print", followed by an expression and ";".
+// Then, starting from expression := equality, we work our way
+// up to primary expressions, which are juste literals or a
+// grouping (closing the group of rules). Note that there is no
+// left-recursion in the grammar (rules in the form "s := s
+// ..."), which we would not be able to parse without entering
+// an infinite recursive loop.
 
 pub struct Parser {
     tokens: Vec<Token>,
@@ -102,10 +119,37 @@ impl Parser {
         self.tokens[self.current - 1].clone()
     }
 
-    pub fn parse(&mut self) -> Result<Expr> {
-        // The top-level rule, the first to be called, is the
-        // expression.
-        self.expression()
+    pub fn parse(&mut self) -> Result<Vec<Stmt>> {
+        // program := statement* EOF
+        
+        // The program is a list of statements terminated by an
+        // EOF token.
+        let mut statements = Vec::new();
+        while !self.is_at_end() {
+            statements.push(self.statement()?);
+        }
+
+        Ok(statements)
+    }
+
+    fn statement(&mut self) -> Result<Stmt> {
+        // statement := expr_stmt | print_stmt
+
+        // A statement is either an expression followed by a
+        // semicolon, or the keyword "print" followed by an
+        // expression and a semicolon.
+        if self.match_next(TokenKind::Print) {
+            self.advance();
+            let expr = self.expression()?;
+            self.consume(TokenKind::Semicolon, ErrorKind::ExpectedSemicolon)?;
+
+            Ok(Stmt::print(expr))
+        } else {
+            let expr = self.expression()?;
+            self.consume(TokenKind::Semicolon, ErrorKind::ExpectedSemicolon)?;
+
+            Ok(Stmt::expression(expr))
+        }
     }
 
     fn expression(&mut self) -> Result<Expr> {

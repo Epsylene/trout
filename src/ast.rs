@@ -1,5 +1,5 @@
 use std::fmt::{Display, Debug};
-use crate::token::{LiteralType, Token};
+use crate::token::Token;
 
 // We have a source code, which is a string of characters from
 // which we derive a series of tokens -- the vocabulary of our
@@ -63,8 +63,8 @@ use crate::token::{LiteralType, Token};
 // upon each other until reaching the terminal symbols in the
 // leaves (like numbers or strings).
 
-// Let us define a grammar for our language. Any expression in
-// the language can be either:
+// An expression is something that ultimately produces a value.
+// Expression in our language can be either:
 // - A literal (number, string, boolean, or nil);
 // - A unary operation (a single ! or - operator followed by an
 //   expression)
@@ -76,6 +76,20 @@ pub enum Expr {
     Unary { operator: Token, right: Box<Expr> },
     Binary { left: Box<Expr>, operator: Token, right: Box<Expr> },
     Grouping { expression: Box<Expr> },
+}
+
+// In imperative programming, a statement is a construct
+// expressing some action to be carried out: declarations
+// specify the data on which a program is to operate, while
+// statements specify the actions to be taken with that data.
+// In our language, statements are either:
+// - An expression (a statement that evaluates an expression
+//   and discards the result)
+// - A print statement (a statement that evaluates an
+//   expression and prints the result)
+pub enum Stmt {
+    Expression { expression: Expr },
+    Print { expression: Expr },
 }
 
 impl Expr {
@@ -105,6 +119,16 @@ impl Expr {
     }
 }
 
+impl Stmt {
+    pub fn expression(expression: Expr) -> Self {
+        Stmt::Expression { expression }
+    }
+
+    pub fn print(expression: Expr) -> Self {
+        Stmt::Print { expression }
+    }
+}
+
 impl Display for Expr {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         match self {
@@ -119,10 +143,28 @@ impl Display for Expr {
 impl Debug for Expr {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         match self {
-            Expr::Literal { value } => write!(f, "{:?}", value),
-            Expr::Unary { operator, right } => write!(f, "({:?} {:?})", operator.kind, right),
-            Expr::Binary { left, operator, right } => write!(f, "({:?} {:?} {:?})", operator.kind, left, right),
-            Expr::Grouping { expression } => write!(f, "(group {:?})", expression),
+            Expr::Literal { value } => write!(f, "Expr::Literal({:?})", value),
+            Expr::Unary { operator, right } => write!(f, "Expr::Unary({:?}, {:?})", operator, right),
+            Expr::Binary { left, operator, right } => write!(f, "Expr::Binary({:?}, {:?}, {:?})", left, operator, right),
+            Expr::Grouping { expression } => write!(f, "Expr::Grouping({:?})", expression),
+        }
+    }
+}
+
+impl Display for Stmt {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        match self {
+            Stmt::Expression { expression } => write!(f, "{};", expression),
+            Stmt::Print { expression } => write!(f, "print {};", expression),
+        }
+    }
+}
+
+impl Debug for Stmt {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        match self {
+            Stmt::Expression { expression } => write!(f, "Stmt::Expression({:?})", expression),
+            Stmt::Print { expression } => write!(f, "Stmt::Print({:?})", expression),
         }
     }
 }

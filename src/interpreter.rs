@@ -1,9 +1,29 @@
 use crate::literal::Value;
 use crate::token::{Token, TokenKind};
 use crate::error::{Error, ErrorKind, Result};
-use crate::ast::Expr;
+use crate::ast::{Expr, Stmt};
 
-pub fn interpret(expr: &Expr) -> Result<Value> {
+pub fn interpret(program: &[Stmt]) -> Result<()> {
+    // The interpreter simply goes through the list of
+    // statements in the program and executes them one by one.
+    program.iter().try_for_each(execute)
+}
+
+fn execute(stmt: &Stmt) -> Result<()> {
+    match stmt {
+        Stmt::Expression { expression } => {
+            evaluate(expression)?;
+        }
+        Stmt::Print { expression } => {
+            let value = evaluate(expression)?;
+            println!("{}", value);
+        }
+    }
+
+    Ok(())
+}
+
+fn evaluate(expr: &Expr) -> Result<Value> {
     // The interpreter works in a similar way to the
     // parser, except the tree has already been built, in
     // the form of an expression object. However
@@ -36,7 +56,7 @@ fn literal(token: &Token) -> Result<Value> {
 
 fn unary(operator: &Token, right: &Expr) -> Result<Value> {
     // First get whatever value the right expression holds...
-    let right = interpret(right)?;
+    let right = evaluate(right)?;
 
     // ...then match the operator.
     let result = match operator.kind {
@@ -62,8 +82,8 @@ fn unary(operator: &Token, right: &Expr) -> Result<Value> {
 
 fn binary(left: &Expr, operator: &Token, right: &Expr) -> Result<Value> {
     // Get the values on the two sides...
-    let left = interpret(left)?;
-    let right = interpret(right)?;
+    let left = evaluate(left)?;
+    let right = evaluate(right)?;
 
     // ...then match the operator and apply the operation.
     let result = match operator.kind {
@@ -96,7 +116,7 @@ fn binary(left: &Expr, operator: &Token, right: &Expr) -> Result<Value> {
         },
         // a / b
         TokenKind::Slash => match (left, right) {
-            (Value::Int(l), Value::Int(r)) => Value::Int(l / r),
+            (Value::Int(l), Value::Int(r)) => Value::Float(l as f32 / r as f32),
             (Value::Float(l), Value::Float(r)) => Value::Float(l / r),
             _ => return Err(Error::new(
                 &operator.location, 
@@ -155,7 +175,7 @@ fn binary(left: &Expr, operator: &Token, right: &Expr) -> Result<Value> {
 fn grouping(expression: &Expr) -> Result<Value> {
     // The value of a grouping is just the value of the
     // expression contained within.
-    interpret(expression)
+    evaluate(expression)
 }
 
 fn truthy(val: Value) -> bool {

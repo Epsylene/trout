@@ -36,6 +36,7 @@ pub enum ErrorKind {
     // Parser
     IncorrectPrimary(String),
     ExpectedRightParen,
+    ExpectedSemicolon,
 
     // Interpreter
     NotUnaryOperator(String),
@@ -46,6 +47,7 @@ pub enum ErrorKind {
 impl Display for ErrorKind {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         match self {
+            // Scanner
             ErrorKind::LexemeOutOfBounds(start, end, eof) => {
                 write!(f, "Lexeme out of bounds: {}-{} (EOF at {})", start, end, eof)
             }
@@ -62,13 +64,18 @@ impl Display for ErrorKind {
                 write!(f, "Unexpected character: {}", character)
             }
 
+            // Parser
             ErrorKind::IncorrectPrimary(token) => {
                 write!(f, "Could not parse: token '{}' did not match a literal (number, string, true, false, nil) or a grouping", token)
             }
             ErrorKind::ExpectedRightParen => {
                 write!(f, "Expected ')' after expression")
             }
+            ErrorKind::ExpectedSemicolon => {
+                write!(f, "Expected semicolon")
+            }
 
+            // Interpreter
             ErrorKind::NotUnaryOperator(token) => {
                 write!(f, "Token '{}' is not a unary operator", token)
             }
