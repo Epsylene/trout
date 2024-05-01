@@ -303,12 +303,16 @@ impl Scanner {
 
         // Get the lexeme and check if it is a keyword.
         let lexeme = self.get_current_lexeme()?;
-        let kind = get_keyword(lexeme.as_str());
+        let (kind, lit) = match lexeme.as_str() {
+            "true" => (TokenKind::True, LiteralType::Bool(true)),
+            "false" => (TokenKind::False, LiteralType::Bool(false)),
+            _ => (get_keyword(lexeme.as_str()), LiteralType::Nil),
+        };
 
         Ok(Token::new(
             kind,
-            lexeme.to_string(),
-            LiteralType::Nil,
+            lexeme,
+            lit,
             self.cursor.token_start(),
         ))
     }
@@ -443,8 +447,6 @@ fn get_keyword(keyword: &str) -> TokenKind {
         "return" => TokenKind::Return,
         "super" => TokenKind::Super,
         "this" => TokenKind::This,
-        "true" => TokenKind::True,
-        "false" => TokenKind::False,
         "var" => TokenKind::Var,
         _ => TokenKind::Identifier,
     }
