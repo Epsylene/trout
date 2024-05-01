@@ -41,7 +41,7 @@ pub enum ErrorKind {
     // Interpreter
     NotUnaryOperator(String),
     NotBinaryOperator(String),
-    NotArithmetic,
+    NotIntOrFloat,
 }
 
 impl Display for ErrorKind {
@@ -82,7 +82,7 @@ impl Display for ErrorKind {
             ErrorKind::NotBinaryOperator(token) => {
                 write!(f, "Token '{}' is not a binary operator", token)
             }
-            ErrorKind::NotArithmetic => {
+            ErrorKind::NotIntOrFloat => {
                 write!(f, "Operand(s) must be a number (int or float)")
             }
         }

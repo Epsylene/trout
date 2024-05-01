@@ -66,7 +66,7 @@ fn unary(operator: &Token, right: &Expr) -> Result<Value> {
             Value::Float(f) => Value::Float(-f),
             _ => return Err(Error::new(
                 &operator.location, 
-                ErrorKind::NotArithmetic)
+                ErrorKind::NotIntOrFloat)
             ),
         },
         // !a
@@ -91,78 +91,102 @@ fn binary(left: &Expr, operator: &Token, right: &Expr) -> Result<Value> {
         TokenKind::Plus => match (left, right) {
             (Value::Int(l), Value::Int(r)) => Value::Int(l + r),
             (Value::Float(l), Value::Float(r)) => Value::Float(l + r),
+            (Value::Int(l), Value::Float(r)) => Value::Float(l as f32 + r),
+            (Value::Float(l), Value::Int(r)) => Value::Float(l + r as f32),
             _ => return Err(Error::new(
                 &operator.location, 
-                ErrorKind::NotArithmetic)
+                ErrorKind::NotIntOrFloat)
             ),
         },
         // a - b
         TokenKind::Minus => match (left, right) {
             (Value::Int(l), Value::Int(r)) => Value::Int(l - r),
             (Value::Float(l), Value::Float(r)) => Value::Float(l - r),
+            (Value::Int(l), Value::Float(r)) => Value::Float(l as f32 - r),
+            (Value::Float(l), Value::Int(r)) => Value::Float(l - r as f32),
             _ => return Err(Error::new(
                 &operator.location, 
-                ErrorKind::NotArithmetic)
+                ErrorKind::NotIntOrFloat)
             ),
         },
         // a * b
         TokenKind::Star => match (left, right) {
             (Value::Int(l), Value::Int(r)) => Value::Int(l * r),
             (Value::Float(l), Value::Float(r)) => Value::Float(l * r),
+            (Value::Int(l), Value::Float(r)) => Value::Float(l as f32 * r),
+            (Value::Float(l), Value::Int(r)) => Value::Float(l * r as f32),
             _ => return Err(Error::new(
                 &operator.location, 
-                ErrorKind::NotArithmetic)
+                ErrorKind::NotIntOrFloat)
             ),
         },
         // a / b
         TokenKind::Slash => match (left, right) {
             (Value::Int(l), Value::Int(r)) => Value::Float(l as f32 / r as f32),
             (Value::Float(l), Value::Float(r)) => Value::Float(l / r),
+            (Value::Int(l), Value::Float(r)) => Value::Float(l as f32 / r),
+            (Value::Float(l), Value::Int(r)) => Value::Float(l / r as f32),
             _ => return Err(Error::new(
                 &operator.location, 
-                ErrorKind::NotArithmetic)
+                ErrorKind::NotIntOrFloat)
             ),
         },
         // a < b
         TokenKind::Less => match (left, right) {
             (Value::Int(l), Value::Int(r)) => Value::Bool(l < r),
             (Value::Float(l), Value::Float(r)) => Value::Bool(l < r),
+            (Value::Int(l), Value::Float(r)) => Value::Bool((l as f32) < r),
+            (Value::Float(l), Value::Int(r)) => Value::Bool(l < r as f32),
             _ => return Err(Error::new(
                 &operator.location, 
-                ErrorKind::NotArithmetic)
+                ErrorKind::NotIntOrFloat)
             ),
         },
         // a <= b
         TokenKind::LessEqual => match (left, right) {
             (Value::Int(l), Value::Int(r)) => Value::Bool(l <= r),
             (Value::Float(l), Value::Float(r)) => Value::Bool(l <= r),
+            (Value::Int(l), Value::Float(r)) => Value::Bool(l as f32 <= r),
+            (Value::Float(l), Value::Int(r)) => Value::Bool(l <= r as f32),
             _ => return Err(Error::new(
                 &operator.location, 
-                ErrorKind::NotArithmetic)
+                ErrorKind::NotIntOrFloat)
             ),
         },
         // a > b
         TokenKind::Greater => match (left, right) {
             (Value::Int(l), Value::Int(r)) => Value::Bool(l > r),
             (Value::Float(l), Value::Float(r)) => Value::Bool(l > r),
+            (Value::Int(l), Value::Float(r)) => Value::Bool(l as f32 > r),
+            (Value::Float(l), Value::Int(r)) => Value::Bool(l > r as f32),
             _ => return Err(Error::new(
                 &operator.location, 
-                ErrorKind::NotArithmetic)
+                ErrorKind::NotIntOrFloat)
             ),
         },
         // a >= b
         TokenKind::GreaterEqual => match (left, right) {
             (Value::Int(l), Value::Int(r)) => Value::Bool(l >= r),
             (Value::Float(l), Value::Float(r)) => Value::Bool(l >= r),
+            (Value::Int(l), Value::Float(r)) => Value::Bool(l as f32 >= r),
+            (Value::Float(l), Value::Int(r)) => Value::Bool(l >= r as f32),
             _ => return Err(Error::new(
                 &operator.location, 
-                ErrorKind::NotArithmetic)
+                ErrorKind::NotIntOrFloat)
             ),
         },
         // a == b
-        TokenKind::EqualEqual => Value::Bool(left == right),
+        TokenKind::EqualEqual => match (left.clone(), right.clone()) {
+            (Value::Int(l), Value::Float(r)) => Value::Bool((l as f32) == r),
+            (Value::Float(l), Value::Int(r)) => Value::Bool(l == (r as f32)),
+            _ => Value::Bool(left == right),
+        }
         // a != b
-        TokenKind::BangEqual => Value::Bool(left != right),
+        TokenKind::BangEqual => match (left.clone(), right.clone()) {
+            (Value::Int(l), Value::Float(r)) => Value::Bool((l as f32) != r),
+            (Value::Float(l), Value::Int(r)) => Value::Bool(l != (r as f32)),
+            _ => Value::Bool(left != right),
+        },
         _ => return Err(Error::new(
             &operator.location, 
             ErrorKind::NotBinaryOperator(operator.lexeme.clone()))
