@@ -185,6 +185,16 @@ fn truthy(val: Value) -> bool {
     match val {
         Value::Nil => false,
         Value::Bool(b) => b,
+        _ if zero_like(val) => false,
         _ => true,
+    }
+}
+
+fn zero_like(val: Value) -> bool {
+    // A value is zero-like if it is 0 or 0.0.
+    match val {
+        Value::Int(i) => i == 0,
+        Value::Float(f) => f == 0.0,
+        _ => false,
     }
 }
