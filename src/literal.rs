@@ -1,5 +1,12 @@
 use std::fmt::{Display, Debug};
 
+// A literal is a value that is directly written in the code.
+// The atomic values we want to support are:
+//  - Nil (the void value)
+//  - String (a chain of characters)
+//  - Float (a 32-bit IEEE 754 floating point number)
+//  - Int (a 32-bit signed integer)
+//  - Bool (a boolean value)
 #[derive(Clone, PartialEq)]
 pub enum LiteralType {
     Nil,

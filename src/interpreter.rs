@@ -4,12 +4,18 @@ use crate::error::{Error, ErrorKind, Result};
 use crate::ast::{Expr, Stmt};
 
 pub fn interpret(program: &[Stmt]) -> Result<()> {
-    // The interpreter simply goes through the list of
-    // statements in the program and executes them one by one.
+    // The interpreter works in a similar way to the parser,
+    // except it works on the AST instead of the token stream.
+    // The program is represented as a list of statements,
+    // which each have to be executed in order.
     program.iter().try_for_each(execute)
 }
 
 fn execute(stmt: &Stmt) -> Result<()> {
+    // A statement is either an expression, which is evaluated
+    // and whose value is discarded, or a "print" keyword
+    // followed by an expression, which is evaluated and
+    // printed.
     match stmt {
         Stmt::Expression { expression } => {
             evaluate(expression)?;
@@ -24,22 +30,19 @@ fn execute(stmt: &Stmt) -> Result<()> {
 }
 
 fn evaluate(expr: &Expr) -> Result<Value> {
-    // The interpreter works in a similar way to the
-    // parser, except the tree has already been built, in
-    // the form of an expression object. However
-    // complicated, it is just a composition of 4 different
-    // types of subexpressions: literals, unary
-    // expressions, binary expressions, and groupings.
-    // Then, we just need to match the global expression,
-    // and call the corresponding function, which will do
-    // the same with the sub-expressions, and so on, until
-    // we reach the leaves of the tree, which are literals,
-    // and we can go return all the way up with a final
+    // However complicated, an expression is just the
+    // composition of 4 different types of subexpressions:
+    // literals, unary expressions, binary expressions, and
+    // groupings. Then, we just need to match the global
+    // expression, and call the corresponding function, which
+    // will do the same with the sub-expressions, and so on,
+    // until we reach the leaves of the tree, which are
+    // literals, and we can return all the way up with a final
     // value for the whole expression. This is called a
-    // post-order traversal, because we first visit the
-    // branches of the tree before visiting the starting
-    // node: the resulting value is computed in the same
-    // way as a postfix notation (also called "reverse
+    // post-order traversal, because we first "visit"
+    // (evaluate) the branches of the tree before visiting the
+    // starting node: the resulting value is computed in the
+    // same way as a postfix notation (also called "reverse
     // Polish notation": 3 + 4 is 3 4 +, for example).
     match expr {
         Expr::Literal { value } => literal(value),
@@ -93,9 +96,10 @@ fn binary(left: &Expr, operator: &Token, right: &Expr) -> Result<Value> {
             (Value::Float(l), Value::Float(r)) => Value::Float(l + r),
             (Value::Int(l), Value::Float(r)) => Value::Float(l as f32 + r),
             (Value::Float(l), Value::Int(r)) => Value::Float(l + r as f32),
+            (Value::String(l), Value::String(r)) => Value::String(l + &r),
             _ => return Err(Error::new(
                 &operator.location, 
-                ErrorKind::NotIntOrFloat)
+                ErrorKind::NotAddOrConcat)
             ),
         },
         // a - b

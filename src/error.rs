@@ -42,6 +42,7 @@ pub enum ErrorKind {
     NotUnaryOperator(String),
     NotBinaryOperator(String),
     NotIntOrFloat,
+    NotAddOrConcat,
 }
 
 impl Display for ErrorKind {
@@ -84,6 +85,9 @@ impl Display for ErrorKind {
             }
             ErrorKind::NotIntOrFloat => {
                 write!(f, "Operand(s) must be a number (int or float)")
+            }
+            ErrorKind::NotAddOrConcat => {
+                write!(f, "Operands must be two numbers (int or float) or two strings")
             }
         }
     }
