@@ -96,9 +96,9 @@ impl Scanner {
         }
     }
 
-    pub fn scan_tokens(&mut self) -> Result<Vec<Token>, Vec<Error>> {
-        let mut tokens = vec![];
-        let mut errors = vec![];
+    pub fn scan(&mut self) -> Result<Vec<Token>, Vec<Error>> {
+        let mut tokens = Vec::new();
+        let mut errors = Vec::new();
         
         // Starting at the beginning of the source code, we
         // read characters until the EOF is reached.
@@ -460,7 +460,7 @@ mod tests {
     fn test_tokens() {
         let source = "var a = 0";
         let mut scanner = Scanner::new(source);
-        let tokens = scanner.scan_tokens().unwrap();
+        let tokens = scanner.scan().unwrap();
 
         let expected = vec![
             Token::new(TokenKind::Var, "var".to_string(), LiteralType::Nil, (1, 1).into()),
@@ -477,7 +477,7 @@ mod tests {
     fn test_numbers() {
         let source = "123 123.456 3.";
         let mut scanner = Scanner::new(source);
-        let tokens = scanner.scan_tokens().unwrap();
+        let tokens = scanner.scan().unwrap();
 
         let expected = vec![
             Token::new(TokenKind::Number, "123".to_string(), LiteralType::Int(123), (1, 1).into()),
@@ -494,7 +494,7 @@ mod tests {
     fn test_strings() {
         let source = "\"Hello, world!\"";
         let mut scanner = Scanner::new(source);
-        let tokens = scanner.scan_tokens().unwrap();
+        let tokens = scanner.scan().unwrap();
 
         let expected = vec![
             Token::new(TokenKind::String, "Hello, world!".to_string(), LiteralType::String("Hello, world!".to_string()), (1, 1).into()),

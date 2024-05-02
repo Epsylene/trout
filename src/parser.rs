@@ -73,6 +73,22 @@ use crate::ast::{Expr, Stmt};
 // ..."), which we would not be able to parse without entering
 // an infinite recursive loop.
 
+//  program := declaration* EOF
+//  declaration := var_decl | statement
+//
+//  var_decl := "var" IDENTIFIER ("=" expression)? ";"
+//  statement := expr_stmt | print_stmt | block
+//
+//  expr_stmt := expression ";"
+//  print_stmt := "print" expression ";"
+//
+//  expression := equality
+//  equality   := comparison ( ( "!=" | "==" ) comparison )*
+//  comparison := term ( ( ">" | ">=" | "<" | "<=" ) term )*
+//  term       := factor ( ( "-" | "+" ) factor )*
+//  factor     := unary ( ( "/" | "*" ) unary )*
+//  unary      := ( "!" | "-" ) unary | primary
+//  primary    := NUMBER | STRING | "true" | "false" | "nil" | "(" expression ")"
 pub struct Parser {
     tokens: Vec<Token>,
     current: usize,
@@ -99,7 +115,7 @@ impl Parser {
         self.previous()
     }
 
-    fn consume(&mut self, expected: TokenKind, error: ErrorKind) -> Result<Token> {
+    fn until(&mut self, expected: TokenKind, error: ErrorKind) -> Result<Token> {
         if self.match_next(expected) {
             Ok(self.advance())
         } else {
@@ -119,17 +135,52 @@ impl Parser {
         self.tokens[self.current - 1].clone()
     }
 
-    pub fn parse(&mut self) -> Result<Vec<Stmt>> {
-        // program := statement* EOF
-        
-        // The program is a list of statements terminated by an
-        // EOF token.
+    pub fn parse(&mut self) -> Result<Vec<Stmt>, Vec<Error>> {
+        // program := declaration* EOF
         let mut statements = Vec::new();
+        let mut errors = Vec::new();
+        
+        // The program is a list of "declarations" terminated
+        // by an EOF token.
         while !self.is_at_end() {
-            statements.push(self.statement()?);
+            match self.declaration() {
+                Ok(decl) => statements.push(decl),
+                Err(e) => errors.push(e),
+            }
         }
 
         Ok(statements)
+    }
+
+    fn declaration(&mut self) -> Result<Stmt> {
+        // declaration := var_decl | statement
+
+        // A declaration is either a variable declaration or a
+        // statement.
+        if self.match_next(TokenKind::Var) {
+            self.advance();
+            self.var_declaration()
+        } else {
+            self.statement()
+        }
+    }
+
+    fn var_declaration(&mut self) -> Result<Stmt> {
+        // var_decl := "var" IDENTIFIER ("=" expression)? ";"
+
+        // A variable declaration is in the form "var name [=
+        // expr];", where the expression assignment is
+        // optional.
+        let name = self.until(TokenKind::Identifier, ErrorKind::ExpectedIdentifier)?;
+        let initializer = if self.match_next(TokenKind::Equal) {
+            self.advance();
+            Some(self.expression()?)
+        } else {
+            None
+        };
+        self.until(TokenKind::Semicolon, ErrorKind::ExpectedSemicolon)?;
+
+        Ok(Stmt::var(name, initializer))
     }
 
     fn statement(&mut self) -> Result<Stmt> {
@@ -141,12 +192,12 @@ impl Parser {
         if self.match_next(TokenKind::Print) {
             self.advance();
             let expr = self.expression()?;
-            self.consume(TokenKind::Semicolon, ErrorKind::ExpectedSemicolon)?;
+            self.until(TokenKind::Semicolon, ErrorKind::ExpectedSemicolon)?;
 
             Ok(Stmt::print(expr))
         } else {
             let expr = self.expression()?;
-            self.consume(TokenKind::Semicolon, ErrorKind::ExpectedSemicolon)?;
+            self.until(TokenKind::Semicolon, ErrorKind::ExpectedSemicolon)?;
 
             Ok(Stmt::expression(expr))
         }
@@ -272,9 +323,13 @@ impl Parser {
             let expr = self.expression()?;
             // ...then consume the right paren (while checking
             // that it is really there!)
-            self.consume(TokenKind::RightParen, ErrorKind::ExpectedRightParen)?;
+            self.until(TokenKind::RightParen, ErrorKind::ExpectedRightParen)?;
 
             Ok(Expr::grouping(expr))
+        } else if self.match_next(TokenKind::Identifier) {
+            // If it is an identifier, it is a variable
+            // expression.
+            Ok(Expr::variable(self.advance()))
         } else {
             // If it is none of the above, there is something
             // wrong going on.

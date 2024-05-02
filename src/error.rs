@@ -37,6 +37,7 @@ pub enum ErrorKind {
     IncorrectPrimary(String),
     ExpectedRightParen,
     ExpectedSemicolon,
+    ExpectedIdentifier,
 
     // Interpreter
     NotUnaryOperator(String),
@@ -74,6 +75,9 @@ impl Display for ErrorKind {
             }
             ErrorKind::ExpectedSemicolon => {
                 write!(f, "Expected semicolon")
+            }
+            ErrorKind::ExpectedIdentifier => {
+                write!(f, "Expected identifier (word starting with a letter or an underscore)")
             }
 
             // Interpreter

@@ -76,6 +76,7 @@ pub enum Expr {
     Unary { operator: Token, right: Box<Expr> },
     Binary { left: Box<Expr>, operator: Token, right: Box<Expr> },
     Grouping { expression: Box<Expr> },
+    Variable { name: Token },
 }
 
 // In imperative programming, a statement is a construct
@@ -87,9 +88,12 @@ pub enum Expr {
 //   and discards the result)
 // - A print statement (a statement that evaluates an
 //   expression and prints the result)
+// - A variable declaration (a statement that declares a new
+//   variable and optionally initializes it with an expression)
 pub enum Stmt {
     Expression { expression: Expr },
     Print { expression: Expr },
+    Variable { name: Token, initializer: Option<Expr> },
 }
 
 impl Expr {
@@ -117,6 +121,10 @@ impl Expr {
             expression: Box::new(expression),
         }
     }
+
+    pub fn variable(name: Token) -> Self {
+        Expr::Variable { name }
+    }
 }
 
 impl Stmt {
@@ -127,6 +135,10 @@ impl Stmt {
     pub fn print(expression: Expr) -> Self {
         Stmt::Print { expression }
     }
+
+    pub fn var(name: Token, initializer: Option<Expr>) -> Self {
+        Stmt::Variable { name, initializer }
+    }
 }
 
 impl Display for Expr {
@@ -136,6 +148,7 @@ impl Display for Expr {
             Expr::Unary { operator, right } => write!(f, "({} {})", operator.lexeme, right),
             Expr::Binary { left, operator, right } => write!(f, "({} {} {})", operator.lexeme, left, right),
             Expr::Grouping { expression } => write!(f, "{}", expression),
+            Expr::Variable { name } => write!(f, "{}", name.lexeme),
         }
     }
 }
@@ -147,6 +160,7 @@ impl Debug for Expr {
             Expr::Unary { operator, right } => write!(f, "Expr::Unary({:?}, {:?})", operator, right),
             Expr::Binary { left, operator, right } => write!(f, "Expr::Binary({:?}, {:?}, {:?})", left, operator, right),
             Expr::Grouping { expression } => write!(f, "Expr::Grouping({:?})", expression),
+            Expr::Variable { name } => write!(f, "Expr::Variable({:?})", name),
         }
     }
 }
@@ -156,6 +170,7 @@ impl Display for Stmt {
         match self {
             Stmt::Expression { expression } => write!(f, "{};", expression),
             Stmt::Print { expression } => write!(f, "print {};", expression),
+            Stmt::Variable { name, initializer: _ } => write!(f, "var {}", name.lexeme),
         }
     }
 }
@@ -165,6 +180,7 @@ impl Debug for Stmt {
         match self {
             Stmt::Expression { expression } => write!(f, "Stmt::Expression({:?})", expression),
             Stmt::Print { expression } => write!(f, "Stmt::Print({:?})", expression),
+            Stmt::Variable { name, initializer } => write!(f, "Stmt::Variable({:?}, {:?})", name, initializer),
         }
     }
 }

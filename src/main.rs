@@ -54,7 +54,7 @@ fn run_file(path: &str) -> Result<(), AppError> {
 
 fn run(source: &str) -> Result<(), AppError> {
     let mut scan = Scanner::new(source);
-    let tokens = scan.scan_tokens().map_err(AppError::Compiler)?;
+    let tokens = scan.scan().map_err(AppError::Compiler)?;
     
     let mut parser = Parser::new(tokens);
     let program = parser.parse().map_err(|e| AppError::Compiler(e.into()))?;
