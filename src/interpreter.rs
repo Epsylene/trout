@@ -79,30 +79,32 @@ impl<'a> Interpreter<'a> {
             Expr::Unary { operator, right } => self.unary(operator, right),
             Expr::Binary { left, operator, right } => self.binary(left, operator, right),
             Expr::Grouping { expression } => self.grouping(expression),
-            Expr::Variable { name } => {
-                // A variable is evaluated by looking up its
-                // value in the environment.
-                match self.environment.get(&name.lexeme) {
-                    // Declared and initialized
-                    Some(Some(value)) => Ok(value.clone()),
-                    // Declared but not initialized
-                    Some(None) => Err(Error::new(
-                        &name.location, 
-                        ErrorKind::UndefinedVariable(name.lexeme.clone()))
-                    ),
-                    // Not declared
-                    None => Err(Error::new(
-                        &name.location, 
-                        ErrorKind::NotDeclaredVariable(name.lexeme.clone()))
-                    ),
-                }
-            }
+            Expr::Variable { name } => self.variable(name),
         }
     }
     
     fn literal(&self, token: &Token) -> Result<Value> {
         // The value of a literal is the literal value.
         Ok(token.literal.clone())
+    }
+
+    fn variable(&self, name: &Token) -> Result<Value> {
+        // A variable is evaluated by looking up its
+        // value in the environment.
+        match self.environment.get(&name.lexeme) {
+            // Declared and initialized
+            Some(Some(value)) => Ok(value.clone()),
+            // Declared but not initialized
+            Some(None) => Err(Error::new(
+                &name.location, 
+                ErrorKind::UndefinedVariable(name.lexeme.clone()))
+            ),
+            // Not declared
+            None => Err(Error::new(
+                &name.location, 
+                ErrorKind::NotDeclaredVariable(name.lexeme.clone()))
+            ),
+        }
     }
     
     fn unary(&self, operator: &Token, right: &Expr) -> Result<Value> {

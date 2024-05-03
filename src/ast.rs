@@ -78,6 +78,7 @@ pub enum Expr {
     Binary { left: Box<Expr>, operator: Token, right: Box<Expr> },
     Grouping { expression: Box<Expr> },
     Variable { name: Token },
+    Assign { name: Token, value: Box<Expr> },
 }
 
 // In imperative programming, a statement is a construct
@@ -123,6 +124,13 @@ impl Expr {
     pub fn variable(name: Token) -> Self {
         Expr::Variable { name }
     }
+
+    pub fn assign(name: Token, value: Expr) -> Self {
+        Expr::Assign {
+            name,
+            value: Box::new(value),
+        }
+    }
 }
 
 impl Stmt {
@@ -147,6 +155,7 @@ impl Display for Expr {
             Expr::Binary { left, operator, right } => write!(f, "({} {} {})", operator.lexeme, left, right),
             Expr::Grouping { expression } => write!(f, "{}", expression),
             Expr::Variable { name } => write!(f, "{}", name.lexeme),
+            Expr::Assign { name, value } => write!(f, "{} = {}", name.lexeme, value),
         }
     }
 }
@@ -159,6 +168,7 @@ impl Debug for Expr {
             Expr::Binary { left, operator, right } => write!(f, "Expr::Binary({:?}, {:?}, {:?})", left, operator, right),
             Expr::Grouping { expression } => write!(f, "Expr::Grouping({:?})", expression),
             Expr::Variable { name } => write!(f, "Expr::Variable({:?})", name),
+            Expr::Assign { name, value } => write!(f, "Expr::Assign({:?}, {:?})", name, value),
         }
     }
 }
@@ -168,7 +178,10 @@ impl Display for Stmt {
         match self {
             Stmt::Expression { expression } => write!(f, "{};", expression),
             Stmt::Print { expression } => write!(f, "print {};", expression),
-            Stmt::Var { name, initializer: _ } => write!(f, "var {}", name.lexeme),
+            Stmt::Var { name, initializer } => match initializer {
+                    Some(expr) => write!(f, "var {} = {};", name.lexeme, expr),
+                    None => write!(f, "var {};", name.lexeme)
+                },
         }
     }
 }

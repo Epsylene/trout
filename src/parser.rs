@@ -59,10 +59,10 @@ use crate::ast::{Expr, Stmt};
 // statement and that for a declaration, we can build a tree
 // that fully describes the sintax of a given program.
 
-// The grammar for the language is presented below. Note that
-// there is no left-recursion in the grammar (rules in the form
-// "s := s ..."), which we would not be able to parse without
-// entering an infinite recursive loop.
+// The full grammar for the language is presented below. Note
+// that there is no left-recursion (rules in the form "s := s
+// ..."), which we would not be able to parse without entering
+// an infinite recursive loop.
 //
 //  program := (declaration | statement)* EOF
 //
@@ -72,7 +72,8 @@ use crate::ast::{Expr, Stmt};
 //  expr_stmt := expression ";"
 //  print_stmt := "print" expression ";"
 //
-//  expression := equality
+//  expression := assignment
+//  assignment := IDENTIFIER "=" assignment | equality
 //  equality   := comparison ( ( "!=" | "==" ) comparison )*
 //  comparison := term ( ( ">" | ">=" | "<" | "<=" ) term )*
 //  term       := factor ( ( "-" | "+" ) factor )*
@@ -194,12 +195,47 @@ impl Parser {
     }
 
     fn expression(&mut self) -> Result<Expr> {
-        // expression := equality 
+        // expression := assignment
 
         // The first rule is that of any expression, which
         // calls the rule for the lowest precedence operator,
         // the equality.
-        self.equality()
+        self.assignment()
+    }
+
+    fn assignment(&mut self) -> Result<Expr> {
+        // assignment := IDENTIFIER "=" assignment | equality
+
+        // An assignment puts into an identifier an expression,
+        // potentially itself an assignment. The left-hand side
+        // of the assignment, however, can also be an
+        // expression (think of accessing the field of a
+        // struct, for example): to account for this, we shall
+        // parse first the l-value with equality() (which calls
+        // the rest of the expression tree)...
+        let mut lhs = self.equality()?;
+
+        // ...advancing the parser (which we recall has only
+        // one token of lookahead) enough to check if the next
+        // token is an equal sign and then parse the right-hand
+        // side of the assignment. If not, then this is not an
+        // assignment, but a simple expression, which has
+        // already been parsed.
+        if self.match_next(TokenKind::Equal) {
+            let equals = self.advance();
+            let rhs = self.assignment()?;
+
+            if let Expr::Variable { name } = lhs {
+                lhs = Expr::assign(name, rhs);
+            } else {
+                return Err(Error::new(
+                    &equals.location,
+                    ErrorKind::ExpectedIdentifier
+                ));
+            }
+        }
+
+        Ok(lhs)
     }
 
     fn equality(&mut self) -> Result<Expr> {
