@@ -44,7 +44,7 @@ pub enum ErrorKind {
     NotBinaryOperator(String),
     NotIntOrFloat,
     NotAddOrConcat,
-    NotDeclaredVariable(String),
+    VariableNotDeclared(String),
     UndefinedVariable(String),
 }
 
@@ -79,7 +79,7 @@ impl Display for ErrorKind {
                 write!(f, "Expected semicolon")
             }
             ErrorKind::ExpectedIdentifier => {
-                write!(f, "Expected identifier (word starting with a letter or an underscore)")
+                write!(f, "Invalid assignment target: expected identifier")
             }
 
             // Interpreter
@@ -95,7 +95,7 @@ impl Display for ErrorKind {
             ErrorKind::NotAddOrConcat => {
                 write!(f, "Operands must be two numbers (int or float) or two strings")
             }
-            ErrorKind::NotDeclaredVariable(name) => {
+            ErrorKind::VariableNotDeclared(name) => {
                 write!(f, "Variable '{}' has not been declared", name)
             }
             ErrorKind::UndefinedVariable(name) => {

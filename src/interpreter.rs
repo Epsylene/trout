@@ -59,7 +59,7 @@ impl<'a> Interpreter<'a> {
         Ok(())
     }
     
-    fn evaluate(&self, expr: &Expr) -> Result<Value> {
+    fn evaluate(&mut self, expr: &Expr) -> Result<Value> {
         // However complicated, an expression is just the
         // composition of 4 different types of subexpressions:
         // literals, unary expressions, binary expressions, and
@@ -80,6 +80,7 @@ impl<'a> Interpreter<'a> {
             Expr::Binary { left, operator, right } => self.binary(left, operator, right),
             Expr::Grouping { expression } => self.grouping(expression),
             Expr::Variable { name } => self.variable(name),
+            Expr::Assign { lhs, rhs } => self.assign(lhs, rhs),
         }
     }
     
@@ -102,12 +103,31 @@ impl<'a> Interpreter<'a> {
             // Not declared
             None => Err(Error::new(
                 &name.location, 
-                ErrorKind::NotDeclaredVariable(name.lexeme.clone()))
+                ErrorKind::VariableNotDeclared(name.lexeme.clone()))
             ),
         }
     }
+
+    fn assign(&mut self, lhs: &Token, rhs: &Expr) -> Result<Value> {
+        // An assignment "a = expr;" is evaluated with the
+        // value of "expr", but only if "a" has been declared
+        // in the first place.
+        let value = self.evaluate(rhs)?;
+        if self.environment.get(&lhs.lexeme).is_some() {
+            self.environment.define(lhs.lexeme.clone(), Some(value.clone()));
+        } else {
+            return Err(Error::new(
+                &lhs.location, 
+                ErrorKind::VariableNotDeclared(lhs.lexeme.clone()))
+            );
+        }
+        
+        // Returning the value from the assignment allows
+        // nesting assignments inside expressions.
+        Ok(value)
+    }
     
-    fn unary(&self, operator: &Token, right: &Expr) -> Result<Value> {
+    fn unary(&mut self, operator: &Token, right: &Expr) -> Result<Value> {
         // First get whatever value the right expression holds...
         let right = self.evaluate(right)?;
     
@@ -133,7 +153,7 @@ impl<'a> Interpreter<'a> {
         Ok(result)
     }
     
-    fn binary(&self, left: &Expr, operator: &Token, right: &Expr) -> Result<Value> {
+    fn binary(&mut self, left: &Expr, operator: &Token, right: &Expr) -> Result<Value> {
         // Get the values on the two sides...
         let left = self.evaluate(left)?;
         let right = self.evaluate(right)?;
@@ -250,7 +270,7 @@ impl<'a> Interpreter<'a> {
         Ok(result)
     }
     
-    fn grouping(&self, expression: &Expr) -> Result<Value> {
+    fn grouping(&mut self, expression: &Expr) -> Result<Value> {
         // The value of a grouping is just the value of the
         // expression contained within.
         self.evaluate(expression)

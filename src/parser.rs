@@ -222,9 +222,16 @@ impl Parser {
         // assignment, but a simple expression, which has
         // already been parsed.
         if self.match_next(TokenKind::Equal) {
+            // Parsing the right-hand side of the assignment
+            // means calling assignment() again, since it is
+            // right-associative (a = b = c = ...).
             let equals = self.advance();
             let rhs = self.assignment()?;
 
+            // Once this is done, we can check if the LHS is an
+            // actual variable we can assign to (and not an
+            // expression of the type "a + b = c", where a + b
+            // is clearly an r-value, not an l-value).
             if let Expr::Variable { name } = lhs {
                 lhs = Expr::assign(name, rhs);
             } else {

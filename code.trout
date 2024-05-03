@@ -1,8 +1,12 @@
 var a = 5;
 var b;
 
-print a;
+print a; // comment
 var a = "trout";
 
 var b = a;
+print b;
+
+a = b = 7;
+print a;
 print b;

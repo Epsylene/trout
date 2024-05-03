@@ -78,7 +78,7 @@ pub enum Expr {
     Binary { left: Box<Expr>, operator: Token, right: Box<Expr> },
     Grouping { expression: Box<Expr> },
     Variable { name: Token },
-    Assign { name: Token, value: Box<Expr> },
+    Assign { lhs: Token, rhs: Box<Expr> },
 }
 
 // In imperative programming, a statement is a construct
@@ -127,8 +127,8 @@ impl Expr {
 
     pub fn assign(name: Token, value: Expr) -> Self {
         Expr::Assign {
-            name,
-            value: Box::new(value),
+            lhs: name,
+            rhs: Box::new(value),
         }
     }
 }
@@ -155,7 +155,7 @@ impl Display for Expr {
             Expr::Binary { left, operator, right } => write!(f, "({} {} {})", operator.lexeme, left, right),
             Expr::Grouping { expression } => write!(f, "{}", expression),
             Expr::Variable { name } => write!(f, "{}", name.lexeme),
-            Expr::Assign { name, value } => write!(f, "{} = {}", name.lexeme, value),
+            Expr::Assign { lhs, rhs } => write!(f, "{} = {}", lhs.lexeme, rhs),
         }
     }
 }
@@ -168,7 +168,7 @@ impl Debug for Expr {
             Expr::Binary { left, operator, right } => write!(f, "Expr::Binary({:?}, {:?}, {:?})", left, operator, right),
             Expr::Grouping { expression } => write!(f, "Expr::Grouping({:?})", expression),
             Expr::Variable { name } => write!(f, "Expr::Variable({:?})", name),
-            Expr::Assign { name, value } => write!(f, "Expr::Assign({:?}, {:?})", name, value),
+            Expr::Assign { lhs, rhs } => write!(f, "Expr::Assign({:?}, {:?})", lhs, rhs),
         }
     }
 }
