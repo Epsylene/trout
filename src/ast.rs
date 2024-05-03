@@ -58,10 +58,11 @@ use crate::token::Token;
 //
 // The AST (Abstract Syntax Tree) is the data structure used to
 // represented the formal grammar of the language. Each of its
-// nodes represents a construct in the language: internal nodes
-// are made of operators (in the broad sense), which build one
-// upon each other until reaching the terminal symbols in the
-// leaves (like numbers or strings).
+// nodes represents a construct in the language: statements or
+// declarations, made of expressions, made of other
+// expressions, and so on, forming a tree structure. The root
+// of the tree is the program itself, and the leaves are the
+// literals (numbers, strings, booleans, nil) or variables.
 
 // An expression is something that ultimately produces a value.
 // Expression in our language can be either:
@@ -84,16 +85,13 @@ pub enum Expr {
 // specify the data on which a program is to operate, while
 // statements specify the actions to be taken with that data.
 // In our language, statements are either:
-// - An expression (a statement that evaluates an expression
-//   and discards the result)
-// - A print statement (a statement that evaluates an
-//   expression and prints the result)
-// - A variable declaration (a statement that declares a new
-//   variable and optionally initializes it with an expression)
+// - An expression ("1 + 2 / 3")
+// - A print statement ("print expr")
+// - A variable declaration ("var name [= expr]")
 pub enum Stmt {
     Expression { expression: Expr },
     Print { expression: Expr },
-    Variable { name: Token, initializer: Option<Expr> },
+    Var { name: Token, initializer: Option<Expr> },
 }
 
 impl Expr {
@@ -137,7 +135,7 @@ impl Stmt {
     }
 
     pub fn var(name: Token, initializer: Option<Expr>) -> Self {
-        Stmt::Variable { name, initializer }
+        Stmt::Var { name, initializer }
     }
 }
 
@@ -170,7 +168,7 @@ impl Display for Stmt {
         match self {
             Stmt::Expression { expression } => write!(f, "{};", expression),
             Stmt::Print { expression } => write!(f, "print {};", expression),
-            Stmt::Variable { name, initializer: _ } => write!(f, "var {}", name.lexeme),
+            Stmt::Var { name, initializer: _ } => write!(f, "var {}", name.lexeme),
         }
     }
 }
@@ -180,7 +178,7 @@ impl Debug for Stmt {
         match self {
             Stmt::Expression { expression } => write!(f, "Stmt::Expression({:?})", expression),
             Stmt::Print { expression } => write!(f, "Stmt::Print({:?})", expression),
-            Stmt::Variable { name, initializer } => write!(f, "Stmt::Variable({:?}, {:?})", name, initializer),
+            Stmt::Var { name, initializer } => write!(f, "Stmt::Variable({:?}, {:?})", name, initializer),
         }
     }
 }

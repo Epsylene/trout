@@ -1,5 +1,8 @@
-"aaaaa
-bbbb"++
-()!=
-//comment
-{"qq"}
+var a = 5;
+var b;
+
+print a;
+var a = "trout";
+
+var b = a;
+print b;

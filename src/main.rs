@@ -1,5 +1,6 @@
 use std::{env, fs, io, io::Write};
-use interpreter::interpret;
+use environment::Environment;
+use interpreter::Interpreter;
 use scanner::Scanner;
 use parser::Parser;
 use error::AppError;
@@ -11,12 +12,15 @@ mod error;
 mod ast;
 mod parser;
 mod interpreter;
+mod environment;
 
 fn run_prompt() -> Result<(), AppError> {
     // REPL loop (Read-Eval-Print-Loop): a simple interactive
     // programming environment that takes input code one line
     // at a time, interprets it, and returns the result to the
-    // user.
+    // user. We need to define the program environment ouside
+    // of the loop, so that it persists between iterations.
+    let mut env = Environment::new();
     loop {
         print!("> ");
         // stdout is line-buffered by default, so we need to
@@ -36,7 +40,7 @@ fn run_prompt() -> Result<(), AppError> {
 
         // We don't want to break the loop on an error, only to
         // print it.
-        if let Err(e) = run(&input) {
+        if let Err(e) = run(&input, &mut env) {
             eprintln!("{}", e);
         }
     }
@@ -49,16 +53,19 @@ fn run_file(path: &str) -> Result<(), AppError> {
         AppError::Sys(format!("Error reading file {}", path))
     )?;
 
-    run(&contents)
+    let mut env = Environment::new();
+    run(&contents, &mut env)
 }
 
-fn run(source: &str) -> Result<(), AppError> {
+fn run(source: &str, env: &mut Environment) -> Result<(), AppError> {
     let mut scan = Scanner::new(source);
     let tokens = scan.scan().map_err(AppError::Compiler)?;
     
     let mut parser = Parser::new(tokens);
-    let program = parser.parse().map_err(|e| AppError::Compiler(e.into()))?;
-    interpret(&program).map_err(|e| AppError::Compiler(e.into()))?;
+    let program = parser.parse().map_err(AppError::Compiler)?;
+    
+    let mut interpreter = Interpreter::new(env);
+    interpreter.interpret(&program).map_err(|e| AppError::Compiler(e.into()))?;
 
     Ok(())
 }
@@ -66,7 +73,6 @@ fn run(source: &str) -> Result<(), AppError> {
 fn main() {
     let args: Vec<_> = env::args().collect();
 
-    println!("A new trout has appearead!");
     match args.len() {
         1 => run_prompt(),
         2 => run_file(&args[1]),

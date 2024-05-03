@@ -44,6 +44,8 @@ pub enum ErrorKind {
     NotBinaryOperator(String),
     NotIntOrFloat,
     NotAddOrConcat,
+    NotDeclaredVariable(String),
+    UndefinedVariable(String),
 }
 
 impl Display for ErrorKind {
@@ -92,6 +94,12 @@ impl Display for ErrorKind {
             }
             ErrorKind::NotAddOrConcat => {
                 write!(f, "Operands must be two numbers (int or float) or two strings")
+            }
+            ErrorKind::NotDeclaredVariable(name) => {
+                write!(f, "Variable '{}' has not been declared", name)
+            }
+            ErrorKind::UndefinedVariable(name) => {
+                write!(f, "Variable '{}' has been declared but not initialized", name)
             }
         }
     }

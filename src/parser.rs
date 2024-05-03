@@ -26,10 +26,11 @@ use crate::ast::{Expr, Stmt};
 //
 // We will use a recursive descent parser, which is the
 // simplest way of traversing the sintax tree, translating each
-// rule of the grammar into a function. To avoid ambiguity in
-// expressions such as "1 * 2 / 3", we first need to define the
-// precedence and associativity of each operator, such that
-// from highest to lowest precedence:
+// rule of the grammar into a construct of the language. To
+// avoid ambiguity in expressions such as "1 * 2 / 3", we first
+// need to define the precedence and associativity of each
+// operator, such that from highest to lowest precedence:
+//
 // (1) Unary operators (! -) associate right;
 // (2) Factor (* /) associate left;
 // (3) Term (+ -) associate left;
@@ -41,43 +42,32 @@ use crate::ast::{Expr, Stmt};
 // expressions at a precedence level equal or lower to the
 // following one, so that the parser calls the highest
 // precedence rule (the highest precedence operators) on the
-// leaves (literals) of the tree. Because equality < comparison
-// < term < factor < unary, we get the following grammar:
+// leaves (literals) of the tree. That is, because equality <
+// comparison < term < factor < unary, we get a grammar such
+// as:
 //
-//  expression := equality
-//  equality   := comparison ( ( "!=" | "==" ) comparison )*
-//  comparison := term ( ( ">" | ">=" | "<" | "<=" ) term )*
-//  term       := factor ( ( "-" | "+" ) factor )*
-//  factor     := unary ( ( "/" | "*" ) unary )*
-//  unary      := ( "!" | "-" ) unary | primary
-//  primary    := NUMBER | STRING | "true" | "false" | "nil" | "(" expression ")"
+//      expression := equality
+//      equality   := comparison ( ( "!=" | "==" ) comparison )*
+//      ...
 //
-// Now, we want to extend this grammar with statements.
-// Expressions produce values, while statements express actions
-// to be carried out, like assignments, conditionals, or
-// functions. Thus, the topmost rule of our grammar (the
-// program itself) will be simply:
-// 
-//  program := statement* EOF
-//  statement := expr_stmt | print_stmt
-//  expr_stmt := expression ";"
-//  print_stmt := "print" expression ";"
-//
-// A program is a list of statements ending with an EOF token;
-// each statement is either an expression followed by ";", or
-// the keyword "print", followed by an expression and ";".
-// Then, starting from expression := equality, we work our way
-// up to primary expressions, which are juste literals or a
-// grouping (closing the group of rules). Note that there is no
-// left-recursion in the grammar (rules in the form "s := s
-// ..."), which we would not be able to parse without entering
-// an infinite recursive loop.
+// To create a language, we also want statements and
+// declarations. Expressions produce values; statements use
+// expressions to carry out some action; declarations bind data
+// to labels. The definition of a program, then, is a list of
+// statements and/or declarations, based on expressions, and
+// terminated by an EOF token. Starting from the the rule for a
+// statement and that for a declaration, we can build a tree
+// that fully describes the sintax of a given program.
 
-//  program := declaration* EOF
-//  declaration := var_decl | statement
+// The grammar for the language is presented below. Note that
+// there is no left-recursion in the grammar (rules in the form
+// "s := s ..."), which we would not be able to parse without
+// entering an infinite recursive loop.
 //
-//  var_decl := "var" IDENTIFIER ("=" expression)? ";"
-//  statement := expr_stmt | print_stmt | block
+//  program := (declaration | statement)* EOF
+//
+//  declaration := "var" IDENTIFIER ("=" expression)? ";"
+//  statement := expr_stmt | print_stmt
 //
 //  expr_stmt := expression ";"
 //  print_stmt := "print" expression ";"
@@ -88,7 +78,8 @@ use crate::ast::{Expr, Stmt};
 //  term       := factor ( ( "-" | "+" ) factor )*
 //  factor     := unary ( ( "/" | "*" ) unary )*
 //  unary      := ( "!" | "-" ) unary | primary
-//  primary    := NUMBER | STRING | "true" | "false" | "nil" | "(" expression ")"
+//  primary    := NUMBER | STRING | "true" | "false" | "nil" 
+//                  | "(" expression ")" | IDENTIFIER
 pub struct Parser {
     tokens: Vec<Token>,
     current: usize,
@@ -136,15 +127,15 @@ impl Parser {
     }
 
     pub fn parse(&mut self) -> Result<Vec<Stmt>, Vec<Error>> {
-        // program := declaration* EOF
+        // program := (declaration | statement)* EOF
         let mut statements = Vec::new();
         let mut errors = Vec::new();
         
-        // The program is a list of "declarations" terminated
-        // by an EOF token.
+        // The program is a list of "constructs" (declarations
+        // or statements) terminated by an EOF token.
         while !self.is_at_end() {
-            match self.declaration() {
-                Ok(decl) => statements.push(decl),
+            match self.construct() {
+                Ok(stmt) => statements.push(stmt),
                 Err(e) => errors.push(e),
             }
         }
@@ -152,21 +143,19 @@ impl Parser {
         Ok(statements)
     }
 
-    fn declaration(&mut self) -> Result<Stmt> {
-        // declaration := var_decl | statement
-
-        // A declaration is either a variable declaration or a
-        // statement.
+    fn construct(&mut self) -> Result<Stmt> {
+        // Choose between a declaration (starting with "var")
+        // or a statement.
         if self.match_next(TokenKind::Var) {
             self.advance();
-            self.var_declaration()
+            self.declaration()
         } else {
             self.statement()
         }
     }
 
-    fn var_declaration(&mut self) -> Result<Stmt> {
-        // var_decl := "var" IDENTIFIER ("=" expression)? ";"
+    fn declaration(&mut self) -> Result<Stmt> {
+        // declaration := "var" IDENTIFIER ("=" expression)? ";"
 
         // A variable declaration is in the form "var name [=
         // expr];", where the expression assignment is
@@ -186,16 +175,17 @@ impl Parser {
     fn statement(&mut self) -> Result<Stmt> {
         // statement := expr_stmt | print_stmt
 
-        // A statement is either an expression followed by a
-        // semicolon, or the keyword "print" followed by an
-        // expression and a semicolon.
+        // A statement is either:
         if self.match_next(TokenKind::Print) {
+            // A "print" keyword, followed by an expression and
+            // a semicolon...
             self.advance();
             let expr = self.expression()?;
             self.until(TokenKind::Semicolon, ErrorKind::ExpectedSemicolon)?;
 
             Ok(Stmt::print(expr))
         } else {
+            // ...or just an expression followed by a semicolon.
             let expr = self.expression()?;
             self.until(TokenKind::Semicolon, ErrorKind::ExpectedSemicolon)?;
 
