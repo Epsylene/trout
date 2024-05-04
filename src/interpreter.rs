@@ -261,6 +261,11 @@ impl<'a> Interpreter<'a> {
                 (Value::Float(l), Value::Int(r)) => Value::Bool(l != (r as f32)),
                 _ => Value::Bool(left != right),
             },
+            // a and b
+            TokenKind::And => Value::Bool(truthy(left) && truthy(right)),
+            // a or b
+            TokenKind::Or => Value::Bool(truthy(left) || truthy(right)),
+            // Something else
             _ => return Err(Error::new(
                 &operator.location, 
                 ErrorKind::NotBinaryOperator(operator.lexeme.clone()))

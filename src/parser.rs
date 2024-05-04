@@ -73,9 +73,11 @@ use crate::ast::{Expr, Stmt};
 //  print_stmt := "print" expression ";"
 //
 //  expression := assignment
-//  assignment := IDENTIFIER "=" assignment | equality
+//  assignment := IDENTIFIER "=" assignment | logical_or
+//  logical_or := logical_and ( "or" logical_and )*
+//  logical_and := equality ( "and" equality )*
 //  equality   := comparison ( ( "!=" | "==" ) comparison )*
-//  comparison := term ( ( ">" | ">=" | "<" | "<=" ) term )*
+//  comparison := term ( ( ">" | ">=" | "<" | "<=" | "and" | "or" ) term )*
 //  term       := factor ( ( "-" | "+" ) factor )*
 //  factor     := unary ( ( "/" | "*" ) unary )*
 //  unary      := ( "!" | "-" ) unary | primary
@@ -211,9 +213,9 @@ impl Parser {
         // of the assignment, however, can also be an
         // expression (think of accessing the field of a
         // struct, for example): to account for this, we shall
-        // parse first the l-value with equality() (which calls
-        // the rest of the expression tree)...
-        let mut lhs = self.equality()?;
+        // parse first the l-value with logical_or() (which
+        // calls the rest of the expression tree)...
+        let mut lhs = self.logical_or()?;
 
         // ...advancing the parser (which we recall has only
         // one token of lookahead) enough to check if the next
@@ -245,6 +247,49 @@ impl Parser {
         Ok(lhs)
     }
 
+    fn logical_or(&mut self) -> Result<Expr> {
+        // logical_or := logical_and ( "or" logical_and )*
+
+        // The logical OR operator is left-associative, and
+        // consists of "logical and" expressions separated by
+        // the "or" keyword. It is important to separate the
+        // two rules in this way so as to give precedence to OR
+        // over AND.
+        let mut expr = self.logical_and()?;
+
+        // While we have an "or" keyword after the just-parsed
+        // expression (meaning that expressions such as a == b
+        // == c are allowed, and are parsed unambiguously as (a
+        // == b) == c, because of left-associativity)...
+        while self.match_next(TokenKind::Or) {
+            // ...keep parsing the right side of the operator
+            // and add branches to this subtree. 
+            let operator = self.advance();
+            let right = self.logical_and()?;
+            expr = Expr::binary(expr, operator, right);
+        }
+
+        Ok(expr)
+    }
+
+    fn logical_and(&mut self) -> Result<Expr> {
+        // logical_and := equality ( "and" equality )*
+
+        // The logical AND operator is left-associative, and
+        // consists of equality expressions separated by the
+        // "and" keyword.
+        let mut expr = self.equality()?;
+
+        // Parse the operator chain.
+        while self.match_next(TokenKind::And) {
+            let operator = self.advance();
+            let right = self.equality()?;
+            expr = Expr::binary(expr, operator, right);
+        }
+
+        Ok(expr)
+    }
+
     fn equality(&mut self) -> Result<Expr> {
         // equality := comparison ( ( "!=" | "==" ) comparison )*
 
@@ -252,10 +297,7 @@ impl Parser {
         let mut expr = self.comparison()?;
 
         // ...followed by zero or more comparisons chained with
-        // != or == operators (meaning that expressions such as
-        // a == b == c are allowed, and are parsed
-        // unambiguously as (a == b) == c, because of
-        // left-associativity).
+        // != or == operators .
         while self.matches_one_in(&[TokenKind::BangEqual, TokenKind::EqualEqual]) {
             // If there is match, advance to consume the
             // operator, then call the comparison rule, and
@@ -276,10 +318,9 @@ impl Parser {
         // Much like the equality, a comparison has a term...
         let mut expr = self.term()?;
 
-        // ...followed by either >, >=, < or <= and another
-        // term, zero or more times. In the same fashion,
-        // expressions such as a < b < c are parsed as (a < b)
-        // < c.
+        // ...followed by a comparison operator and another
+        // term, zero or more times. Like equality, expressions
+        // such as a < b < c are parsed as (a < b) < c.
         while self.matches_one_in(&[TokenKind::Greater, TokenKind::GreaterEqual, TokenKind::Less, TokenKind::LessEqual]) {
             let operator = self.advance();
             let right = self.term()?;
