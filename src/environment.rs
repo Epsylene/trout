@@ -2,17 +2,33 @@ use std::collections::HashMap;
 use crate::literal::Value;
 
 // The "environment" of the program is all the data that it has
-// created and is handling as part of its execution. Variables
-// can thus be stored as a map of their identifiers to their
-// values in memory.
+// created and is handling as part of its execution. All
+// variables are not created equal, however: some are part of a
+// scope, like a function or a block, and some are global. To
+// account for these different levels of visibility, we use a
+// stack of environments, where each environment has:
+//  - A map of strings to (optional) values, representing the
+//    variables in the environment;
+//  - A reference to the parent environment, representing the
+//    enclosing scope.
+#[derive(Clone)]
 pub struct Environment {
     values: HashMap<String, Option<Value>>,
+    enclosing: Option<Box<Environment>>,
 }
 
 impl Environment {
-    pub fn new() -> Self {
+    pub fn global() -> Self {
         Environment {
             values: HashMap::new(),
+            enclosing: None,
+        }
+    }
+
+    pub fn local(enclosing: Box<Environment>) -> Self {
+        Environment {
+            values: HashMap::new(),
+            enclosing: Some(enclosing),
         }
     }
 
@@ -26,11 +42,18 @@ impl Environment {
     }
 
     pub fn get(&self, name: &str) -> Option<&Option<Value>> {
-        // Checking if there is an entry for the variable
-        // (first Option), meaning that it exists, or if has
-        // been defined with a value (second Option) is done
-        // during the interpretation phase, when this function
-        // is called.
-        self.values.get(name)
+        // Returning the value of the variable with the given
+        // label. If the variable exists in the current
+        // environment, we return it directly; otherwise, we
+        // check if it exists in the parent environment, which
+        // will itself check its parent if needed, and so on up
+        // to the global scope.
+        match self.values.get(name) {
+            Some(value) => Some(value),
+            None => match &self.enclosing {
+                Some(enclosing) => enclosing.get(name),
+                None => None,
+            }
+        }
     }
 }

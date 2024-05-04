@@ -4,17 +4,17 @@ use crate::error::{Error, ErrorKind, Result};
 use crate::ast::{Expr, Stmt};
 use crate::environment::Environment;
 
-pub struct Interpreter<'a> {
+pub struct Interpreter {
     // The interpreter needs to keep track of the environment
     // in which the program is running, so that it can store
     // and retrieve variables.
-    environment: &'a mut Environment,
+    environment: Environment,
 }
 
-impl<'a> Interpreter<'a> {
-    pub fn new(environment: &'a mut Environment) -> Self {
+impl Interpreter {
+    pub fn new() -> Self {
         Interpreter {
-            environment,
+            environment: Environment::global(),
         }
     }
 
@@ -29,11 +29,12 @@ impl<'a> Interpreter<'a> {
     fn execute(&mut self, stmt: &Stmt) -> Result<()> {
         // A statement is either:
         match stmt {
-            // - An expression, which is evaluated an discarded;
+            // - An expression, which is evaluated;
             Stmt::Expression { expression } => {
                 self.evaluate(expression)?;
             }
-            // - A print statement, whose expression is evaluated and printed;
+            // - A print statement, whose expression is
+            //   evaluated and printed;
             Stmt::Print { expression } => {
                 let value = self.evaluate(expression)?;
                 println!("{}", value);
@@ -53,6 +54,23 @@ impl<'a> Interpreter<'a> {
                         self.environment.define(name.lexeme.clone(), None);
                     }
                 }
+            }
+            // - A block, which is a list of statements that
+            //   are executed in order.
+            Stmt::Block { statements } => {
+                // A block is a new scope, so we save the
+                // environment and update it to this new local
+                // one.
+                let enclosing = self.environment.clone();
+                self.environment = Environment::local(Box::new(enclosing.clone()));
+                
+                // Then we can execute the statements contained
+                // within the block.
+                statements.iter().try_for_each(|stmt| self.execute(stmt))?;
+                
+                // After the block is executed, we discard the
+                // environment and go back to the parent.
+                self.environment = enclosing;
             }
         }
     

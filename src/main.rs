@@ -1,4 +1,4 @@
-use std::{env, fs, io, io::Write};
+use std::{env, fs, io::{self, Write}};
 use environment::Environment;
 use interpreter::Interpreter;
 use scanner::Scanner;
@@ -20,7 +20,7 @@ fn run_prompt() -> Result<(), AppError> {
     // at a time, interprets it, and returns the result to the
     // user. We need to define the program environment ouside
     // of the loop, so that it persists between iterations.
-    let mut env = Environment::new();
+    let mut interpreter = Interpreter::new();
     loop {
         print!("> ");
         // stdout is line-buffered by default, so we need to
@@ -40,7 +40,7 @@ fn run_prompt() -> Result<(), AppError> {
 
         // We don't want to break the loop on an error, only to
         // print it.
-        if let Err(e) = run(&input, &mut env) {
+        if let Err(e) = run(&input, &mut interpreter) {
             eprintln!("{}", e);
         }
     }
@@ -53,18 +53,17 @@ fn run_file(path: &str) -> Result<(), AppError> {
         AppError::Sys(format!("Error reading file {}", path))
     )?;
 
-    let mut env = Environment::new();
-    run(&contents, &mut env)
+    let mut interpreter = Interpreter::new();
+    run(&contents, &mut interpreter)
 }
 
-fn run(source: &str, env: &mut Environment) -> Result<(), AppError> {
+fn run(source: &str, interpreter: &mut Interpreter) -> Result<(), AppError> {
     let mut scan = Scanner::new(source);
     let tokens = scan.scan().map_err(AppError::Compiler)?;
     
     let mut parser = Parser::new(tokens);
     let program = parser.parse().map_err(AppError::Compiler)?;
     
-    let mut interpreter = Interpreter::new(env);
     interpreter.interpret(&program).map_err(|e| AppError::Compiler(e.into()))?;
 
     Ok(())

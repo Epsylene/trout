@@ -38,6 +38,7 @@ pub enum ErrorKind {
     ExpectedRightParen,
     ExpectedSemicolon,
     ExpectedIdentifier,
+    ExpectedRightBrace,
 
     // Interpreter
     NotUnaryOperator(String),
@@ -80,6 +81,9 @@ impl Display for ErrorKind {
             }
             ErrorKind::ExpectedIdentifier => {
                 write!(f, "Invalid assignment target: expected identifier")
+            }
+            ErrorKind::ExpectedRightBrace => {
+                write!(f, "Expected '}}' to end block")
             }
 
             // Interpreter

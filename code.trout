@@ -1,12 +1,11 @@
 var a = 5;
-var b;
+var b = 2;
 
-print a; // comment
-var a = "trout";
+{
+    var a = 8;
+    b = 3;
+    print a;
+}
 
-var b = a;
 print b;
-
-a = b = 7;
 print a;
-print b;

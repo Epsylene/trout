@@ -67,8 +67,9 @@ use crate::ast::{Expr, Stmt};
 //  program := (declaration | statement)* EOF
 //
 //  declaration := "var" IDENTIFIER ("=" expression)? ";"
-//  statement := expr_stmt | print_stmt
+//  statement := expr_stmt | print_stmt | block
 //
+//  block := "{" declaration* "}"
 //  expr_stmt := expression ";"
 //  print_stmt := "print" expression ";"
 //
@@ -137,7 +138,7 @@ impl Parser {
         // The program is a list of "constructs" (declarations
         // or statements) terminated by an EOF token.
         while !self.is_at_end() {
-            match self.construct() {
+            match self.traverse() {
                 Ok(stmt) => statements.push(stmt),
                 Err(e) => errors.push(e),
             }
@@ -146,7 +147,7 @@ impl Parser {
         Ok(statements)
     }
 
-    fn construct(&mut self) -> Result<Stmt> {
+    fn traverse(&mut self) -> Result<Stmt> {
         // Choose between a declaration (starting with "var")
         // or a statement.
         if self.match_next(TokenKind::Var) {
@@ -178,17 +179,36 @@ impl Parser {
     fn statement(&mut self) -> Result<Stmt> {
         // statement := expr_stmt | print_stmt
 
-        // A statement is either:
+        // A statement can be:
         if self.match_next(TokenKind::Print) {
             // A "print" keyword, followed by an expression and
-            // a semicolon...
+            // a semicolon;
             self.advance();
             let expr = self.expression()?;
             self.until(TokenKind::Semicolon, ErrorKind::ExpectedSemicolon)?;
 
             Ok(Stmt::print(expr))
+        } else if self.match_next(TokenKind::LeftBrace) {
+            // A block of statements;
+            self.advance();
+            let mut statements = Vec::new();
+
+            // The block statement is like a subprogram, with
+            // its own tree to traverse.
+            while !self.match_next(TokenKind::RightBrace) && !self.is_at_end() {
+                match self.traverse() {
+                    Ok(stmt) => statements.push(stmt),
+                    Err(e) => return Err(e),
+                }
+            }
+
+            // After all statements have been parsed, consume
+            // until reaching the right brace.
+            self.until(TokenKind::RightBrace, ErrorKind::ExpectedRightBrace)?;
+            
+            Ok(Stmt::block(statements))
         } else {
-            // ...or just an expression followed by a semicolon.
+            // An expression followed by a semicolon.
             let expr = self.expression()?;
             self.until(TokenKind::Semicolon, ErrorKind::ExpectedSemicolon)?;
 

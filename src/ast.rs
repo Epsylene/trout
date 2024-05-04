@@ -86,13 +86,19 @@ pub enum Expr {
 // specify the data on which a program is to operate, while
 // statements specify the actions to be taken with that data.
 // In our language, statements are either:
-// - An expression ("1 + 2 / 3")
-// - A print statement ("print expr")
-// - A variable declaration ("var name [= expr]")
+// - An expression ("1 + 2 / 3"), producing a value;
+// - A print statement ("print expr"), printing the value of
+//   the argument expression;
+// - A variable declaration ("var name [= expr]"), declaring a
+//   label for some value, optionally initialized with an
+//   expression;
+// - A block ("{ stmt1; stmt2; ... }"), enclosing a sequence of
+//   statements in a scope.
 pub enum Stmt {
     Expression { expression: Expr },
     Print { expression: Expr },
     Var { name: Token, initializer: Option<Expr> },
+    Block { statements: Vec<Stmt> },
 }
 
 impl Expr {
@@ -145,6 +151,10 @@ impl Stmt {
     pub fn var(name: Token, initializer: Option<Expr>) -> Self {
         Stmt::Var { name, initializer }
     }
+
+    pub fn block(statements: Vec<Stmt>) -> Self {
+        Stmt::Block { statements }
+    }
 }
 
 impl Display for Expr {
@@ -182,6 +192,13 @@ impl Display for Stmt {
                     Some(expr) => write!(f, "var {} = {};", name.lexeme, expr),
                     None => write!(f, "var {};", name.lexeme)
                 },
+            Stmt::Block { statements } => {
+                writeln!(f, "{{\n")?;
+                for stmt in statements {
+                    writeln!(f, "{}\n", stmt)?;
+                }
+                write!(f, "}}")
+            }
         }
     }
 }
@@ -192,6 +209,7 @@ impl Debug for Stmt {
             Stmt::Expression { expression } => write!(f, "Stmt::Expression({:?})", expression),
             Stmt::Print { expression } => write!(f, "Stmt::Print({:?})", expression),
             Stmt::Var { name, initializer } => write!(f, "Stmt::Variable({:?}, {:?})", name, initializer),
+            Stmt::Block { statements } => write!(f, "Stmt::Block({:?})", statements),
         }
     }
 }
