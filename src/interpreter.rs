@@ -42,9 +42,8 @@ impl Interpreter {
             // - A variable declaration, which is evaluated and
             //   stored in the environment.
             Stmt::Var { name, initializer } => {
-                // A variable can be declared but not defined.
-                // If it is, we evaluate the expression and
-                // store the result in the environment.
+                // A variable can be declared but not defined,
+                // so the "initializer" expression is optional.
                 match initializer {
                     Some(expr) => {
                         let value = self.evaluate(expr)?;
@@ -62,7 +61,7 @@ impl Interpreter {
                 // environment and update it to this new local
                 // one.
                 let enclosing = self.environment.clone();
-                self.environment = Environment::local(Box::new(enclosing.clone()));
+                self.environment = Environment::local(Box::new(enclosing));
                 
                 // Then we can execute the statements contained
                 // within the block.
@@ -70,7 +69,7 @@ impl Interpreter {
                 
                 // After the block is executed, we discard the
                 // environment and go back to the parent.
-                self.environment = enclosing;
+                self.environment.to_enclosing();
             }
         }
     
@@ -127,22 +126,23 @@ impl Interpreter {
     }
 
     fn assign(&mut self, lhs: &Token, rhs: &Expr) -> Result<Value> {
-        // An assignment "a = expr;" is evaluated with the
-        // value of "expr", but only if "a" has been declared
-        // in the first place.
-        let value = self.evaluate(rhs)?;
+        // First check if the variable to assign actually
+        // exists, that is, if it has been declared in this
+        // environment (scope) or any enclosing one.
         if self.environment.get(&lhs.lexeme).is_some() {
-            self.environment.define(lhs.lexeme.clone(), Some(value.clone()));
+            // If it has, evaluate the expression and assign.
+            let value = self.evaluate(rhs)?;
+            self.environment.assign(lhs.lexeme.clone(), value.clone());
+
+            // Returning the value from the assignment allows
+            // nesting assignments inside expressions.
+            Ok(value)
         } else {
-            return Err(Error::new(
+            Err(Error::new(
                 &lhs.location, 
                 ErrorKind::VariableNotDeclared(lhs.lexeme.clone()))
-            );
+            )
         }
-        
-        // Returning the value from the assignment allows
-        // nesting assignments inside expressions.
-        Ok(value)
     }
     
     fn unary(&mut self, operator: &Token, right: &Expr) -> Result<Value> {
