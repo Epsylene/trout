@@ -1,8 +1,8 @@
 use std::{env, fs, io::{self, Write}};
-use environment::Environment;
 use interpreter::Interpreter;
 use scanner::Scanner;
 use parser::Parser;
+use literal::Value;
 use error::AppError;
 
 mod literal;
@@ -40,8 +40,10 @@ fn run_prompt() -> Result<(), AppError> {
 
         // We don't want to break the loop on an error, only to
         // print it.
-        if let Err(e) = run(&input, &mut interpreter) {
-            eprintln!("{}", e);
+        match run(&input, &mut interpreter) {
+            Ok(Some(value)) => println!("{}", value),
+            Ok(None) => (),
+            Err(e) => eprintln!("{}", e),
         }
     }
 
@@ -54,19 +56,20 @@ fn run_file(path: &str) -> Result<(), AppError> {
     )?;
 
     let mut interpreter = Interpreter::new();
-    run(&contents, &mut interpreter)
+
+    // When running a file, we don't care about the "result of
+    // the last statement", so we just map that to unit.
+    run(&contents, &mut interpreter).map(|_| ())
 }
 
-fn run(source: &str, interpreter: &mut Interpreter) -> Result<(), AppError> {
+fn run(source: &str, interpreter: &mut Interpreter) -> Result<Option<Value>, AppError> {
     let mut scan = Scanner::new(source);
     let tokens = scan.scan().map_err(AppError::Compiler)?;
     
     let mut parser = Parser::new(tokens);
     let program = parser.parse().map_err(AppError::Compiler)?;
     
-    interpreter.interpret(&program).map_err(|e| AppError::Compiler(e.into()))?;
-
-    Ok(())
+    interpreter.interpret(&program).map_err(|e| AppError::Compiler(e.into()))
 }
 
 fn main() {

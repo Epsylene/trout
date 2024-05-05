@@ -18,26 +18,48 @@ impl Interpreter {
         }
     }
 
-    pub fn interpret(&mut self, program: &[Stmt]) -> Result<()> {
-        // The interpreter works in a similar way to the parser,
-        // except it works on the AST instead of the token stream.
-        // The program is represented as a list of statements,
-        // which each have to be executed in order.
-        program.iter().try_for_each(|stmt| self.execute(stmt))
+    pub fn interpret(&mut self, program: &[Stmt]) -> Result<Option<Value>> {
+        // The interpreter works in a similar way to the
+        // parser, except it works on the AST instead of the
+        // token stream. The program is represented as a list
+        // of statements, which each have to be executed in
+        // order.
+        let mut res = None;
+        for stmt in program {
+            res = self.execute(stmt)?;
+        }
+        
+        // Since we are working with a REPL, we want to return
+        // the result of the last statement, so that it can be
+        // printed to the user.
+        Ok(res)
     }
     
-    fn execute(&mut self, stmt: &Stmt) -> Result<()> {
+    fn execute(&mut self, stmt: &Stmt) -> Result<Option<Value>> {
         // A statement is either:
-        match stmt {
+        let res = match stmt {
             // - An expression, which is evaluated;
             Stmt::Expression { expression } => {
-                self.evaluate(expression)?;
+                // The value of the expression is returned as
+                // the result of this statement, so that it can
+                // be used later, for example in automatic
+                // printing by the REPL.
+                Some(self.evaluate(expression)?)
             }
             // - A print statement, whose expression is
             //   evaluated and printed;
             Stmt::Print { expression } => {
                 let value = self.evaluate(expression)?;
                 println!("{}", value);
+
+                // The print statement itself doesn't return a
+                // value, it just prints it (it is important to
+                // make the distinction since a lone expression
+                // statement in a source code won't produce
+                // code that "does" anything, while the print
+                // statement will print to the standard
+                // output).
+                None
             }
             // - A variable declaration, which is evaluated and
             //   stored in the environment.
@@ -53,6 +75,10 @@ impl Interpreter {
                         self.environment.define(name.lexeme.clone(), None);
                     }
                 }
+                
+                // Declaring a variable doesn't return a value
+                // by itself (although it could).
+                None
             }
             // - A block, which is a list of statements that
             //   are executed in order.
@@ -63,17 +89,22 @@ impl Interpreter {
                 let enclosing = self.environment.clone();
                 self.environment = Environment::local(Box::new(enclosing));
                 
-                // Then we can execute the statements contained
-                // within the block.
-                statements.iter().try_for_each(|stmt| self.execute(stmt))?;
+                // Then we can do the interpretation on the
+                // sub-program (the list of statements inside
+                // the block).
+                let res = self.interpret(statements)?;
                 
                 // After the block is executed, we discard the
                 // environment and go back to the parent.
                 self.environment.to_enclosing();
+
+                // The result of the block is the result of the
+                // last statement in the block.
+                res
             }
-        }
+        };
     
-        Ok(())
+        Ok(res)
     }
     
     fn evaluate(&mut self, expr: &Expr) -> Result<Value> {
