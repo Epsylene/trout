@@ -36,7 +36,7 @@ pub enum ErrorKind {
     // Parser
     IncorrectPrimary(String),
     ExpectedRightParen,
-    ExpectedSemicolon,
+    ExpectedSeparator,
     ExpectedIdentifier,
     ExpectedRightBrace,
 
@@ -76,8 +76,8 @@ impl Display for ErrorKind {
             ErrorKind::ExpectedRightParen => {
                 write!(f, "Expected ')' after expression")
             }
-            ErrorKind::ExpectedSemicolon => {
-                write!(f, "Expected semicolon")
+            ErrorKind::ExpectedSeparator => {
+                write!(f, "Expected separator (semicolon or newline) after statement")
             }
             ErrorKind::ExpectedIdentifier => {
                 write!(f, "Invalid assignment target: expected identifier")

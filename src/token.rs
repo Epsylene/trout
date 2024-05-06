@@ -41,6 +41,22 @@ impl From<(u32, u32)> for Location {
     }
 }
 
+pub trait TokenMatch {
+    fn matches(&self, token: &Token) -> bool;
+}
+
+impl TokenMatch for TokenKind {
+    fn matches(&self, token: &Token) -> bool {
+        self == &token.kind
+    }
+}
+
+impl<const N: usize> TokenMatch for &[TokenKind; N] {
+    fn matches(&self, token: &Token) -> bool {
+        self.iter().any(|kind| kind.matches(token))
+    }
+}
+
 // Token struct: a token is a group of characters having
 // collective meaning. It is a string (the lexeme) identified
 // with a token type (separator, keyword, identifier, etc.) and

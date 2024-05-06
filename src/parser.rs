@@ -1,4 +1,4 @@
-use crate::token::{Token, TokenKind};
+use crate::token::{Token, TokenKind, TokenMatch, self};
 use crate::error::{Error, ErrorKind, Result};
 use crate::ast::{Expr, Stmt};
 
@@ -66,12 +66,12 @@ use crate::ast::{Expr, Stmt};
 //
 //  program := (declaration | statement)* EOF
 //
-//  declaration := "var" IDENTIFIER ("=" expression)? ";"
+//  declaration := "var" IDENTIFIER ("=" expression)? (";" | "\n")
 //  statement := expr_stmt | print_stmt | block
 //
 //  block := "{" declaration* "}"
-//  expr_stmt := expression ";"
-//  print_stmt := "print" expression ";"
+//  expr_stmt := expression (";" | "\n")
+//  print_stmt := "print" expression (";" | "\n")
 //
 //  expression := assignment
 //  assignment := IDENTIFIER "=" assignment | logical_or
@@ -94,12 +94,8 @@ impl Parser {
         Parser { tokens, current: 0 }
     }
 
-    fn match_next(&self, expected: TokenKind) -> bool {
-        !self.is_at_end() && self.zero().kind == expected
-    }
-
-    fn matches_one_in(&self, tokens: &[TokenKind]) -> bool {
-        tokens.iter().any(|&kind| self.match_next(kind))
+    fn match_next(&self, expected: impl TokenMatch) -> bool {
+        !self.is_at_end() && expected.matches(&self.zero())
     }
 
     fn advance(&mut self) -> Token {
@@ -110,7 +106,7 @@ impl Parser {
         self.previous()
     }
 
-    fn until(&mut self, expected: TokenKind, error: ErrorKind) -> Result<Token> {
+    fn until(&mut self, expected: impl TokenMatch, error: ErrorKind) -> Result<Token> {
         if self.match_next(expected) {
             Ok(self.advance())
         } else {
@@ -171,7 +167,8 @@ impl Parser {
         } else {
             None
         };
-        self.until(TokenKind::Semicolon, ErrorKind::ExpectedSemicolon)?;
+
+        self.until(&[TokenKind::Semicolon, TokenKind::Newline], ErrorKind::ExpectedSeparator)?;
 
         Ok(Stmt::var(name, initializer))
     }
@@ -181,11 +178,10 @@ impl Parser {
 
         // A statement can be:
         if self.match_next(TokenKind::Print) {
-            // A "print" keyword, followed by an expression and
-            // a semicolon;
+            // A "print" keyword, followed by an expression;
             self.advance();
             let expr = self.expression()?;
-            self.until(TokenKind::Semicolon, ErrorKind::ExpectedSemicolon)?;
+            self.until(&[TokenKind::Semicolon, TokenKind::Newline], ErrorKind::ExpectedSeparator)?;
 
             Ok(Stmt::print(expr))
         } else if self.match_next(TokenKind::LeftBrace) {
@@ -208,9 +204,9 @@ impl Parser {
             
             Ok(Stmt::block(statements))
         } else {
-            // An expression followed by a semicolon.
+            // Just an expression followed by a separator.
             let expr = self.expression()?;
-            self.until(TokenKind::Semicolon, ErrorKind::ExpectedSemicolon)?;
+            self.until(&[TokenKind::Semicolon, TokenKind::Newline], ErrorKind::ExpectedSeparator)?;
 
             Ok(Stmt::expression(expr))
         }
@@ -318,7 +314,7 @@ impl Parser {
 
         // ...followed by zero or more comparisons chained with
         // != or == operators .
-        while self.matches_one_in(&[TokenKind::BangEqual, TokenKind::EqualEqual]) {
+        while self.match_next(&[TokenKind::BangEqual, TokenKind::EqualEqual]) {
             // If there is match, advance to consume the
             // operator, then call the comparison rule, and
             // build a binary expression from the left
@@ -341,7 +337,7 @@ impl Parser {
         // ...followed by a comparison operator and another
         // term, zero or more times. Like equality, expressions
         // such as a < b < c are parsed as (a < b) < c.
-        while self.matches_one_in(&[TokenKind::Greater, TokenKind::GreaterEqual, TokenKind::Less, TokenKind::LessEqual]) {
+        while self.match_next(&[TokenKind::Greater, TokenKind::GreaterEqual, TokenKind::Less, TokenKind::LessEqual]) {
             let operator = self.advance();
             let right = self.term()?;
             expr = Expr::binary(expr, operator, right);
@@ -358,7 +354,7 @@ impl Parser {
 
         // ...with another factor by either the + or -
         // operator, zero or more times.
-        while self.matches_one_in(&[TokenKind::Minus, TokenKind::Plus]) {
+        while self.match_next(&[TokenKind::Minus, TokenKind::Plus]) {
             let operator = self.advance();
             let right = self.factor()?;
             expr = Expr::binary(expr, operator, right);
@@ -375,7 +371,7 @@ impl Parser {
 
         // ...a / or * and another unary expression, zero or
         // more times.
-        while self.matches_one_in(&[TokenKind::Slash, TokenKind::Star]) {
+        while self.match_next(&[TokenKind::Slash, TokenKind::Star]) {
             let operator = self.advance();
             let right = self.unary()?;
             expr = Expr::binary(expr, operator, right);
@@ -390,7 +386,7 @@ impl Parser {
         // A unary expression is first a ! or - operator
         // followed by another unary expression, or simply a
         // primary expression.
-        if self.matches_one_in(&[TokenKind::Bang, TokenKind::Minus]) {
+        if self.match_next(&[TokenKind::Bang, TokenKind::Minus]) {
             let operator = self.advance();
             let right = self.unary()?;
             
@@ -406,7 +402,7 @@ impl Parser {
         // And finally, a primary expression is either a
         // number, a string, true, false, nil or the grouping
         // of an expression (making it all come full circle!)
-        if self.matches_one_in(&[TokenKind::Number, TokenKind::String, TokenKind::True, TokenKind::False, TokenKind::Nil]) {
+        if self.match_next(&[TokenKind::Number, TokenKind::String, TokenKind::True, TokenKind::False, TokenKind::Nil]) {
             // If it is a literal, consume it right away
             Ok(Expr::literal(self.advance()))
         } else if self.match_next(TokenKind::LeftParen) {

@@ -54,6 +54,8 @@ impl Cursor {
     }
 
     fn column_at_start(&self) -> u32 {
+        // The column at the start of the token (1-index from
+        // the beginning of the line)
         self.column - (self.current - self.start - 1) as u32
     }
 
@@ -208,7 +210,7 @@ impl Scanner {
 
         // If the token is neither whitespace nor a comment, we
         // add it to the list of tokens.
-        if matches!(kind, TokenKind::Whitespace | TokenKind::Newline | TokenKind::LineComment) {
+        if matches!(kind, TokenKind::Whitespace | TokenKind::LineComment) {
             Ok(None)
         } else {
             Ok(Some(token))
