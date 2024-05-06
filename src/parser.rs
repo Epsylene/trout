@@ -135,22 +135,28 @@ impl Parser {
         // or statements) terminated by an EOF token.
         while !self.is_at_end() {
             match self.traverse() {
-                Ok(stmt) => statements.push(stmt),
-                Err(e) => errors.push(e),
+                Some(Ok(stmt)) => statements.push(stmt),
+                Some(Err(e)) => errors.push(e),
+                None => (),
             }
         }
 
         Ok(statements)
     }
 
-    fn traverse(&mut self) -> Result<Stmt> {
-        // Choose between a declaration (starting with "var")
-        // or a statement.
+    fn traverse(&mut self) -> Option<Result<Stmt>> {
+        // Choose between:
         if self.match_next(TokenKind::Var) {
+            // - A declaration;
             self.advance();
-            self.declaration()
+            Some(self.declaration())
+        } else if self.match_next(&[TokenKind::Semicolon, TokenKind::Newline]) {
+            // - An empty statement;
+            self.advance();
+            None
         } else {
-            self.statement()
+            // - A regular statement.
+            Some(self.statement())
         }
     }
 
@@ -193,8 +199,9 @@ impl Parser {
             // its own tree to traverse.
             while !self.match_next(TokenKind::RightBrace) && !self.is_at_end() {
                 match self.traverse() {
-                    Ok(stmt) => statements.push(stmt),
-                    Err(e) => return Err(e),
+                    Some(Ok(stmt)) => statements.push(stmt),
+                    Some(Err(e)) => return Err(e),
+                    None => (),
                 }
             }
 
