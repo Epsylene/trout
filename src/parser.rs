@@ -66,12 +66,13 @@ use crate::ast::{Expr, Stmt};
 //
 //  program := (declaration | statement)* EOF
 //
-//  declaration := "var" IDENTIFIER ("=" expression)? (";" | "\n")
-//  statement := expr_stmt | print_stmt | block
+//  declaration := "var" IDENTIFIER ("=" expression)?
+//  statement := expr_stmt | print_stmt | block | if_stmt
 //
 //  block := "{" declaration* "}"
-//  expr_stmt := expression (";" | "\n")
-//  print_stmt := "print" expression (";" | "\n")
+//  expr_stmt := expression
+//  print_stmt := "print" expression
+//  if_stmt := "if" expression block ("else" block)?
 //
 //  expression := assignment
 //  assignment := IDENTIFIER "=" assignment | logical_or
@@ -106,7 +107,7 @@ impl Parser {
         self.previous()
     }
 
-    fn until(&mut self, expected: impl TokenMatch, error: ErrorKind) -> Result<Token> {
+    fn consume(&mut self, expected: impl TokenMatch, error: ErrorKind) -> Result<Token> {
         if self.match_next(expected) {
             Ok(self.advance())
         } else {
@@ -161,12 +162,13 @@ impl Parser {
     }
 
     fn declaration(&mut self) -> Result<Stmt> {
-        // declaration := "var" IDENTIFIER ("=" expression)? ";"
+        // declaration := "var" IDENTIFIER ("=" expression)?
 
-        // A variable declaration is in the form "var name [=
-        // expr];", where the expression assignment is
-        // optional.
-        let name = self.until(TokenKind::Identifier, ErrorKind::ExpectedIdentifier)?;
+        // A variable declaration is comprised of an
+        // identifier, following the "var" keyword...
+        let name = self.consume(TokenKind::Identifier, ErrorKind::ExpectedIdentifier)?;
+        
+        // ...and optionally an initializer expression.
         let initializer = if self.match_next(TokenKind::Equal) {
             self.advance();
             Some(self.expression()?)
@@ -174,49 +176,102 @@ impl Parser {
             None
         };
 
-        self.until(&[TokenKind::Semicolon, TokenKind::Newline], ErrorKind::ExpectedSeparator)?;
+        self.consume(&[TokenKind::Semicolon, TokenKind::Newline], ErrorKind::ExpectedSeparator)?;
 
         Ok(Stmt::var(name, initializer))
     }
 
     fn statement(&mut self) -> Result<Stmt> {
-        // statement := expr_stmt | print_stmt
+        // statement := expr_stmt | print_stmt | block | if_stmt
 
-        // A statement can be:
-        if self.match_next(TokenKind::Print) {
-            // A "print" keyword, followed by an expression;
-            self.advance();
-            let expr = self.expression()?;
-            self.until(&[TokenKind::Semicolon, TokenKind::Newline], ErrorKind::ExpectedSeparator)?;
-
-            Ok(Stmt::print(expr))
-        } else if self.match_next(TokenKind::LeftBrace) {
-            // A block of statements;
-            self.advance();
-            let mut statements = Vec::new();
-
-            // The block statement is like a subprogram, with
-            // its own tree to traverse.
-            while !self.match_next(TokenKind::RightBrace) && !self.is_at_end() {
-                match self.traverse() {
-                    Some(Ok(stmt)) => statements.push(stmt),
-                    Some(Err(e)) => return Err(e),
-                    None => (),
-                }
-            }
-
-            // After all statements have been parsed, consume
-            // until reaching the right brace.
-            self.until(TokenKind::RightBrace, ErrorKind::ExpectedRightBrace)?;
-            
-            Ok(Stmt::block(statements))
-        } else {
-            // Just an expression followed by a separator.
-            let expr = self.expression()?;
-            self.until(&[TokenKind::Semicolon, TokenKind::Newline], ErrorKind::ExpectedSeparator)?;
-
-            Ok(Stmt::expression(expr))
+        match self.zero().kind {
+            TokenKind::Print => self.print_stmt(),
+            TokenKind::If => self.if_stmt(),
+            TokenKind::LeftBrace => self.block(),
+            _ => self.expr_stmt(),
         }
+    }
+
+    fn print_stmt(&mut self) -> Result<Stmt> {
+        // print_stmt := "print" expression
+
+        // A print statement is just the keyword "print"
+        // followed by an expression and a separator.
+        self.advance();
+        let expr = self.expression()?;
+        self.consume(&[TokenKind::Semicolon, TokenKind::Newline], ErrorKind::ExpectedSeparator)?;
+
+        Ok(Stmt::print(expr))
+    }
+
+    fn if_stmt(&mut self) -> Result<Stmt> {
+        // if_stmt := "if" expression block ("else" block)?
+
+        self.advance(); // Consume the "if" keyword
+
+        // An if statement is comprised of three parts: a
+        // condition, in the form of an expression...
+        let condition = self.expression()?;
+
+        // ...a block of statements to execute if the condition
+        // is true (the "then" branch)...
+        let then_branch = self.block()?;
+
+        // ...and an optional block of statements to execute if
+        // the condition is false (the "else" branch).
+        let else_branch = if self.match_next(TokenKind::Else) {
+            self.advance();
+            Some(self.block()?)
+        } else {
+            None
+        };
+
+        // A note on the sintax: in other languages, if-else
+        // clauses might not have neatly delimited execution
+        // blocks, but something of the form "if cond a else
+        // b". This poses a problem, however, in the case of
+        // nested conditionals: the statement "if c1 if c2 a
+        // else b" can be parsed as "if c1 { if c2 a } else b"
+        // as well as "if c1 { if c2 a else b }". This is known
+        // as the "dangling else" problem, which is
+        // conventionally solved by attaching the else to the
+        // innermost if. 
+
+        Ok(Stmt::if_stmt(condition, then_branch, else_branch))
+    }
+
+    fn block(&mut self) -> Result<Stmt> {
+        // block := "{" declaration* "}"
+
+        self.advance(); // Consume the left brace
+        let mut statements = Vec::new();
+        
+        // A block is like a subprogram, with its own tree to
+        // traverse.
+        while !self.match_next(TokenKind::RightBrace) && !self.is_at_end() {
+            match self.traverse() {
+                Some(Ok(stmt)) => statements.push(stmt),
+                Some(Err(e)) => return Err(e),
+                None => (),
+            }
+        }
+
+        // After all statements have been parsed, consume until
+        // reaching the right brace.
+        self.consume(TokenKind::RightBrace, ErrorKind::ExpectedRightBrace)?;
+
+        Ok(Stmt::block(statements))
+    }
+
+    fn expr_stmt(&mut self) -> Result<Stmt> {
+        // expr_stmt := expression
+
+        // An expression statement is just an expression
+        // followed by a separator.
+        let expr = self.expression()?;
+        self.consume(&[TokenKind::Semicolon, TokenKind::Newline], ErrorKind::ExpectedSeparator)?;
+
+        Ok(Stmt::expression(expr))
     }
 
     fn expression(&mut self) -> Result<Expr> {
@@ -420,7 +475,7 @@ impl Parser {
             let expr = self.expression()?;
             // ...then consume the right paren (while checking
             // that it is really there!)
-            self.until(TokenKind::RightParen, ErrorKind::ExpectedRightParen)?;
+            self.consume(TokenKind::RightParen, ErrorKind::ExpectedRightParen)?;
 
             Ok(Expr::grouping(expr))
         } else if self.match_next(TokenKind::Identifier) {

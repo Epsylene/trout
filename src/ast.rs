@@ -81,26 +81,6 @@ pub enum Expr {
     Assign { lhs: Token, rhs: Box<Expr> },
 }
 
-// In imperative programming, a statement is a construct
-// expressing some action to be carried out: declarations
-// specify the data on which a program is to operate, while
-// statements specify the actions to be taken with that data.
-// In our language, statements are either:
-// - An expression ("1 + 2 / 3"), producing a value;
-// - A print statement ("print expr"), printing the value of
-//   the argument expression;
-// - A variable declaration ("var name [= expr]"), declaring a
-//   label for some value, optionally initialized with an
-//   expression;
-// - A block ("{ stmt1; stmt2; ... }"), enclosing a sequence of
-//   statements in a scope.
-pub enum Stmt {
-    Expression { expression: Expr },
-    Print { expression: Expr },
-    Var { name: Token, initializer: Option<Expr> },
-    Block { statements: Vec<Stmt> },
-}
-
 impl Expr {
     pub fn literal(value: Token) -> Self {
         Expr::Literal { value }
@@ -139,6 +119,27 @@ impl Expr {
     }
 }
 
+// In imperative programming, a statement is a construct
+// expressing some action to be carried out: declarations
+// specify the data on which a program is to operate, while
+// statements specify the actions to be taken with that data.
+// In our language, statements are either:
+// - An expression ("1 + 2 / 3"), producing a value;
+// - A print statement ("print expr"), printing the value of
+//   the argument expression;
+// - A variable declaration ("var name [= expr]"), declaring a
+//   label for some value, optionally initialized with an
+//   expression;
+// - A block ("{ stmt1; stmt2; ... }"), enclosing a sequence of
+//   statements in a scope.
+pub enum Stmt {
+    Expression { expression: Expr },
+    Print { expression: Expr },
+    Var { name: Token, initializer: Option<Expr> },
+    Block { statements: Vec<Stmt> },
+    If { condition: Expr, then_branch: Box<Stmt>, else_branch: Option<Box<Stmt>> },
+}
+
 impl Stmt {
     pub fn expression(expression: Expr) -> Self {
         Stmt::Expression { expression }
@@ -154,6 +155,14 @@ impl Stmt {
 
     pub fn block(statements: Vec<Stmt>) -> Self {
         Stmt::Block { statements }
+    }
+
+    pub fn if_stmt(condition: Expr, then_branch: Stmt, else_branch: Option<Stmt>) -> Self {
+        Stmt::If {
+            condition,
+            then_branch: Box::new(then_branch),
+            else_branch: else_branch.map(Box::new),
+        }
     }
 }
 
@@ -199,6 +208,14 @@ impl Display for Stmt {
                 }
                 write!(f, "}}")
             }
+            Stmt::If { condition, then_branch, else_branch } => {
+                write!(f, "if {} {} ", condition, then_branch)?;
+                if let Some(else_branch) = else_branch {
+                    write!(f, "else {}", else_branch)
+                } else {
+                    Ok(())
+                }
+            }
         }
     }
 }
@@ -210,6 +227,7 @@ impl Debug for Stmt {
             Stmt::Print { expression } => write!(f, "Stmt::Print({:?})", expression),
             Stmt::Var { name, initializer } => write!(f, "Stmt::Variable({:?}, {:?})", name, initializer),
             Stmt::Block { statements } => write!(f, "Stmt::Block({:?})", statements),
+            Stmt::If { condition, then_branch, else_branch } => write!(f, "Stmt::If({:?}, {:?}, {:?})", condition, then_branch, else_branch),
         }
     }
 }

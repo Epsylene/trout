@@ -36,75 +36,87 @@ impl Interpreter {
     }
     
     fn execute(&mut self, stmt: &Stmt) -> Result<Option<Value>> {
-        // A statement is either:
-        let res = match stmt {
-            // - An expression, which is evaluated;
-            Stmt::Expression { expression } => {
-                // The value of the expression is returned as
-                // the result of this statement, so that it can
-                // be used later, for example in automatic
-                // printing by the REPL.
-                Some(self.evaluate(expression)?)
-            }
-            // - A print statement, whose expression is
-            //   evaluated and printed;
-            Stmt::Print { expression } => {
-                let value = self.evaluate(expression)?;
-                println!("{}", value);
+        // We need to match the type of statement to execute it
+        // and optionally return a value.
+        match stmt {
+            Stmt::Expression { expression } => self.expr_stmt(expression),
+            Stmt::Print { expression } => self.print_stmt(expression),
+            Stmt::Var { name, initializer } => self.var_stmt(name, initializer),
+            Stmt::Block { statements } => self.block_stmt(statements),
+            Stmt::If { condition, then_branch, else_branch } => self.if_stmt(condition, then_branch, else_branch.as_deref()),
+        }
+    }
 
-                // The print statement itself doesn't return a
-                // value, it just prints it (it is important to
-                // make the distinction since a lone expression
-                // statement in a source code won't produce
-                // code that "does" anything, while the print
-                // statement will print to the standard
-                // output).
-                None
-            }
-            // - A variable declaration, which is evaluated and
-            //   stored in the environment.
-            Stmt::Var { name, initializer } => {
-                // A variable can be declared but not defined,
-                // so the "initializer" expression is optional.
-                match initializer {
-                    Some(expr) => {
-                        let value = self.evaluate(expr)?;
-                        self.environment.define(name.lexeme.clone(), Some(value));
-                    }
-                    None => {
-                        self.environment.define(name.lexeme.clone(), None);
-                    }
-                }
-                
-                // Declaring a variable doesn't return a value
-                // by itself (although it could).
-                None
-            }
-            // - A block, which is a list of statements that
-            //   are executed in order.
-            Stmt::Block { statements } => {
-                // A block is a new scope, so we save the
-                // environment and update it to this new local
-                // one.
-                let enclosing = self.environment.clone();
-                self.environment = Environment::local(Box::new(enclosing));
-                
-                // Then we can do the interpretation on the
-                // sub-program (the list of statements inside
-                // the block).
-                let res = self.interpret(statements)?;
-                
-                // After the block is executed, we discard the
-                // environment and go back to the parent.
-                self.environment.to_enclosing();
+    fn expr_stmt(&mut self, expr: &Expr) -> Result<Option<Value>> {
+        // An expression statement is just an expression that
+        // is evaluated and whose value is returned.
+        let value = self.evaluate(expr)?;
+        Ok(Some(value))
+    }
 
-                // The result of the block is the result of the
-                // last statement in the block.
-                res
+    fn print_stmt(&mut self, expr: &Expr) -> Result<Option<Value>> {
+        // A print statement is an expression that is evaluated
+        // and printed to the console.
+        let value = self.evaluate(expr)?;
+        println!("{}", value);
+
+        // The print statement itself doesn't return a value,
+        // it just prints it (it is important to make the
+        // distinction since a lone expression statement in a
+        // source code won't produce code that "does" anything,
+        // while the print statement will print to the standard
+        // output).
+        Ok(None)
+    }
+
+    fn var_stmt(&mut self, name: &Token, initializer: &Option<Expr>) -> Result<Option<Value>> {
+        // A variable can be declared but not defined, so the
+        // "initializer" expression is optional.
+        match initializer {
+            Some(expr) => {
+                let value = self.evaluate(expr)?;
+                self.environment.define(name.lexeme.clone(), Some(value));
             }
-        };
-    
+            None => {
+                self.environment.define(name.lexeme.clone(), None);
+            }
+        }
+        
+        // Declaring a variable doesn't return a value by
+        // itself (although it could).
+        Ok(None)
+    }
+
+    fn block_stmt(&mut self, statements: &[Stmt]) -> Result<Option<Value>> {
+        // A block is a new scope, so we save the environment
+        // and update it to this new local one.
+        let enclosing = self.environment.clone();
+        self.environment = Environment::local(Box::new(enclosing));
+
+        // Then we can do the interpretation on the sub-program
+        // (the list of statements inside the block).
+        let res = self.interpret(statements)?;
+        
+        // After the block is executed, we discard the
+        // environment and go back to the parent.
+        self.environment.to_enclosing();
+
         Ok(res)
+    }
+
+    fn if_stmt(&mut self, condition: &Expr, then_branch: &Stmt, else_branch: Option<&Stmt>) -> Result<Option<Value>> {
+        // First evaluate the condition.
+        let condition = self.evaluate(condition)?;
+        
+        // Then execute the corresponding branch: if true,
+        // "then", if false, either "else" or do nothing.
+        if truthy(condition) {
+            self.execute(then_branch)
+        } else if let Some(else_branch) = else_branch {
+            self.execute(else_branch)
+        } else {
+            Ok(None)
+        }
     }
     
     fn evaluate(&mut self, expr: &Expr) -> Result<Value> {
@@ -112,16 +124,17 @@ impl Interpreter {
         // composition of 4 different types of subexpressions:
         // literals, unary expressions, binary expressions, and
         // groupings. Then, we just need to match the global
-        // expression, and call the corresponding function, which
-        // will do the same with the sub-expressions, and so on,
-        // until we reach the leaves of the tree, which are
-        // literals, and we can return all the way up with a final
-        // value for the whole expression. This is called a
-        // post-order traversal, because we first "visit"
-        // (evaluate) the branches of the tree before visiting the
-        // starting node: the resulting value is computed in the
-        // same way as a postfix notation (also called "reverse
-        // Polish notation": 3 + 4 is 3 4 +, for example).
+        // expression, and call the corresponding function,
+        // which will do the same with the sub-expressions, and
+        // so on, until we reach the leaves of the tree, which
+        // are literals, and we can return all the way up with
+        // a final value for the whole expression. This is
+        // called a post-order traversal, because we first
+        // "visit" (evaluate) the branches of the tree before
+        // visiting the starting node: the resulting value is
+        // computed in the same way as a postfix notation (also
+        // called "reverse Polish notation": 3 + 4 is 3 4 +,
+        // for example).
         match expr {
             Expr::Literal { value } => self.literal(value),
             Expr::Unary { operator, right } => self.unary(operator, right),
@@ -138,8 +151,8 @@ impl Interpreter {
     }
 
     fn variable(&self, name: &Token) -> Result<Value> {
-        // A variable is evaluated by looking up its
-        // value in the environment.
+        // A variable is evaluated by looking up its value in
+        // the environment.
         match self.environment.get(&name.lexeme) {
             // Declared and initialized
             Some(Some(value)) => Ok(value.clone()),
