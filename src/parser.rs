@@ -138,7 +138,7 @@ impl Parser {
             match self.traverse() {
                 Some(Ok(stmt)) => statements.push(stmt),
                 Some(Err(e)) => {
-                    if e.expected_separator() { self.advance(); }
+                    self.advance();
                     errors.push(e);
                 },
                 None => (),
@@ -153,14 +153,14 @@ impl Parser {
 
     fn traverse(&mut self) -> Option<Result<Stmt>> {
         // Choose between:
-        if self.match_next(TokenKind::Var) {
-            // - A declaration;
-            self.advance();
-            Some(self.declaration())
-        } else if self.match_next(&[TokenKind::Semicolon, TokenKind::Newline]) {
+        if self.match_next(&[TokenKind::Semicolon, TokenKind::Newline]) {
             // - An empty statement;
             self.advance();
             None
+        } else if self.match_next(TokenKind::Var) {
+            // - A declaration;
+            self.advance();
+            Some(self.declaration())
         } else {
             // - A regular statement.
             Some(self.statement())

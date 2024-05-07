@@ -128,10 +128,6 @@ impl Error {
             kind,
         }
     }
-
-    pub fn expected_separator(&self) -> bool {
-        matches!(self.kind, ErrorKind::ExpectedSeparator)
-    }
 }
 
 impl From<Error> for Vec<Error> {
