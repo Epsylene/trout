@@ -137,12 +137,18 @@ impl Parser {
         while !self.is_at_end() {
             match self.traverse() {
                 Some(Ok(stmt)) => statements.push(stmt),
-                Some(Err(e)) => errors.push(e),
+                Some(Err(e)) => {
+                    if e.expected_separator() { self.advance(); }
+                    errors.push(e);
+                },
                 None => (),
             }
         }
 
-        Ok(statements)
+        match errors.len() {
+            0 => Ok(statements),
+            _ => Err(errors),
+        }
     }
 
     fn traverse(&mut self) -> Option<Result<Stmt>> {
