@@ -11,12 +11,13 @@ pub enum TokenKind {
     Equal, EqualEqual,
     Greater, GreaterEqual,
     Less, LessEqual,
+    Or, And,
 
     // Literals
     Identifier, String, Number,
 
     // Keywords
-    And, Class, Else, False, Fun, For, If, Nil, Or,
+    Class, Else, False, Fun, For, If, Nil,
     Print, Return, Super, This, True, Var, While,
 
     // Comments

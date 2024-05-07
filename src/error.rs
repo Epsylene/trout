@@ -31,6 +31,7 @@ pub enum ErrorKind {
     FloatParseError(String),
     IntParseError(String),
     UnexpectedCharacter(char),
+    InvalidToken(String, String),
     NotValidUTF8,
 
     // Parser
@@ -67,6 +68,9 @@ impl Display for ErrorKind {
             }
             ErrorKind::UnexpectedCharacter(character) => {
                 write!(f, "Unexpected character: {}", character)
+            }
+            ErrorKind::InvalidToken(token, maybe) => {
+                write!(f, "Invalid token '{}'; maybe you meant '{}'?", token, maybe)
             }
 
             // Parser

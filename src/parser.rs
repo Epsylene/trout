@@ -241,7 +241,11 @@ impl Parser {
         // as well as "if c1 { if c2 a else b }". This is known
         // as the "dangling else" problem, which is
         // conventionally solved by attaching the else to the
-        // innermost if. 
+        // innermost if. In the theory of LR parsers, this is
+        // an example of a shift-reduce conflict (where "shit"
+        // is the action of advancing the parser by one token
+        // and "reduce" to join recently parsed nodes in a tree
+        // by applying a grammar rule).
 
         Ok(Stmt::if_stmt(condition, then_branch, else_branch))
     }

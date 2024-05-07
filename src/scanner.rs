@@ -162,6 +162,26 @@ impl Scanner {
             '=' => self.match_next('=', TokenKind::EqualEqual, TokenKind::Equal),
             '<' => self.match_next('=', TokenKind::LessEqual, TokenKind::Less),
             '>' => self.match_next('=', TokenKind::GreaterEqual, TokenKind::Greater),
+            '&' => {
+                if self.advance() == '&' {
+                    TokenKind::And
+                } else {
+                    return Err(Error::new(
+                        &self.cursor.token_start(),
+                        ErrorKind::InvalidToken("&".to_string(), "&&".to_string()),
+                    ));
+                }
+            },
+            '|' => {
+                if self.advance() == '|' {
+                    TokenKind::Or
+                } else {
+                    return Err(Error::new(
+                        &self.cursor.token_start(),
+                        ErrorKind::InvalidToken("|".to_string(), "||".to_string()),
+                    ));
+                }
+            },
             // - Tokens that end with a special character
             //   (comments, strings...)
             '/' => {
@@ -436,8 +456,6 @@ fn get_keyword(keyword: &str) -> TokenKind {
     // This is as fast or faster than a hash map, as it will
     // compile to a jump table.
     match keyword {
-        "and" => TokenKind::And,
-        "or" => TokenKind::Or,
         "class" => TokenKind::Class,
         "if" => TokenKind::If,
         "else" => TokenKind::Else,
