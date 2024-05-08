@@ -67,12 +67,14 @@ use crate::ast::{Expr, Stmt};
 //  program := (declaration | statement)* EOF
 //
 //  declaration := "var" IDENTIFIER ("=" expression)?
-//  statement := expr_stmt | print_stmt | block | if_stmt
+//  statement := expr_stmt | print_stmt 
+//                  | block | if_stmt | while_stmt
 //
 //  block := "{" declaration* "}"
 //  expr_stmt := expression
 //  print_stmt := "print" expression
 //  if_stmt := "if" expression block ("else" block)?
+//  while_stmt := "while" expression block
 //
 //  expression := assignment
 //  assignment := IDENTIFIER "=" assignment | logical_or
@@ -194,6 +196,7 @@ impl Parser {
             TokenKind::Print => self.print_stmt(),
             TokenKind::If => self.if_stmt(),
             TokenKind::LeftBrace => self.block(),
+            TokenKind::While => self.while_stmt(),
             _ => self.expr_stmt(),
         }
     }
@@ -271,6 +274,20 @@ impl Parser {
         self.consume(TokenKind::RightBrace, ErrorKind::ExpectedRightBrace)?;
 
         Ok(Stmt::block(statements))
+    }
+
+    fn while_stmt(&mut self) -> Result<Stmt> {
+        // while_stmt := "while" expression block
+
+        self.advance(); // Consume the "while" keyword
+
+        // A while statement is comprised of a condition and a
+        // block of statements to execute while the condition
+        // is true.
+        let condition = self.expression()?;
+        let body = self.block()?;
+
+        Ok(Stmt::while_stmt(condition, body))
     }
 
     fn expr_stmt(&mut self) -> Result<Stmt> {

@@ -147,6 +147,7 @@ pub enum Stmt {
     Var { name: Token, initializer: Option<Expr> },
     Block { statements: Vec<Stmt> },
     If { condition: Expr, then_branch: Box<Stmt>, else_branch: Option<Box<Stmt>> },
+    While { condition: Expr, body: Box<Stmt> },
 }
 
 impl Stmt {
@@ -171,6 +172,13 @@ impl Stmt {
             condition,
             then_branch: Box::new(then_branch),
             else_branch: else_branch.map(Box::new),
+        }
+    }
+
+    pub fn while_stmt(condition: Expr, body: Stmt) -> Self {
+        Stmt::While {
+            condition,
+            body: Box::new(body),
         }
     }
 }
@@ -227,6 +235,9 @@ impl Display for Stmt {
                     Ok(())
                 }
             }
+            Stmt::While { condition, body } => {
+                write!(f, "while {} {}", condition, body)
+            }
         }
     }
 }
@@ -239,6 +250,7 @@ impl Debug for Stmt {
             Stmt::Var { name, initializer } => write!(f, "Stmt::Variable({:?}, {:?})", name, initializer),
             Stmt::Block { statements } => write!(f, "Stmt::Block({:?})", statements),
             Stmt::If { condition, then_branch, else_branch } => write!(f, "Stmt::If({:?}, {:?}, {:?})", condition, then_branch, else_branch),
+            Stmt::While { condition, body } => write!(f, "Stmt::While({:?}, {:?})", condition, body),
         }
     }
 }

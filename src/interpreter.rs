@@ -44,6 +44,7 @@ impl Interpreter {
             Stmt::Var { name, initializer } => self.var_stmt(name, initializer),
             Stmt::Block { statements } => self.block_stmt(statements),
             Stmt::If { condition, then_branch, else_branch } => self.if_stmt(condition, then_branch, else_branch.as_deref()),
+            Stmt::While { condition, body } => self.while_stmt(condition, body),
         }
     }
 
@@ -117,6 +118,17 @@ impl Interpreter {
         } else {
             Ok(None)
         }
+    }
+
+    fn while_stmt(&mut self, condition: &Expr, body: &Stmt) -> Result<Option<Value>> {
+        // To implement a while loop, we just need to evaluate
+        // the condition, check its truthiness, and execute the
+        // body while it stays true.
+        while truthy(self.evaluate(condition)?) {
+            self.execute(body)?;
+        }
+        
+        Ok(None)
     }
     
     fn evaluate(&mut self, expr: &Expr) -> Result<Value> {
