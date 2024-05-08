@@ -139,6 +139,7 @@ impl Interpreter {
             Expr::Literal { value } => self.literal(value),
             Expr::Unary { operator, right } => self.unary(operator, right),
             Expr::Binary { left, operator, right } => self.binary(left, operator, right),
+            Expr::Logical { left, operator, right } => self.logical(left, operator, right),
             Expr::Grouping { expression } => self.grouping(expression),
             Expr::Variable { name } => self.variable(name),
             Expr::Assign { lhs, rhs } => self.assign(lhs, rhs),
@@ -323,14 +324,70 @@ impl Interpreter {
                 (Value::Float(l), Value::Int(r)) => Value::Bool(l != (r as f32)),
                 _ => Value::Bool(left != right),
             },
-            // a and b
-            TokenKind::And => Value::Bool(truthy(left) && truthy(right)),
-            // a or b
-            TokenKind::Or => Value::Bool(truthy(left) || truthy(right)),
             // Something else
             _ => return Err(Error::new(
                 &operator.location, 
                 ErrorKind::NotBinaryOperator(operator.lexeme.clone()))
+            ),
+        };
+    
+        Ok(result)
+    }
+
+    fn logical(&mut self, left: &Expr, operator: &Token, right: &Expr) -> Result<Value> {
+        // The binary && and || operators are special, in that
+        // they can short-circuit: an expression of the form a
+        // && b, for example, will always evaluate to false if
+        // a is false. Similarly, a || b will always evaluate
+        // to true if a is true. Thus, we start by evaluating
+        // only the left expression.
+        let left = self.evaluate(left)?;
+        
+        // Then we can match the operator.
+        let result = match operator.kind {
+            // a || b
+            TokenKind::Or => {
+                // Logical operators generally return a boolean
+                // value, but given that non-boolean values are
+                // accepted as operands, we don't necessarily
+                // want a boolean result. We will say for the
+                // OR operator that the value returned is that
+                // of the operand with appropriate truthiness:
+                // for example, "a" || false will return "a";
+                // nil || 5 || "x" will return 5, etc.
+                if truthy(left.clone()) {
+                    // If the left expression is true, we don't
+                    // need to evaluate the right one to know
+                    // the result.
+                    left
+                } else {
+                    // In the other case, we can only get a
+                    // result from the right operand.
+                    self.evaluate(right)?
+                }
+            }
+            // a && b
+            TokenKind::And => {
+                // Similarly, the result of a logical AND is
+                // that of the operand with appropriate
+                // non-truthiness: for example, "a" && false
+                // will return false; 0 && nil && "x" will
+                // return 0, etc.
+                if truthy(left.clone()) {
+                    // If the left expression is true, we need
+                    // to evaluate the right one to know the
+                    // result.
+                    self.evaluate(right)?
+                } else {
+                    // In the other case, it is always the
+                    // value of the left operand.
+                    left
+                }
+            }
+            // Something else
+            _ => return Err(Error::new(
+                &operator.location, 
+                ErrorKind::NotLogicalOperator(operator.lexeme.clone()))
             ),
         };
     

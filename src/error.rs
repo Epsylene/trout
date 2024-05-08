@@ -48,6 +48,7 @@ pub enum ErrorKind {
     NotAddOrConcat,
     VariableNotDeclared(String),
     UndefinedVariable(String),
+    NotLogicalOperator(String),
 }
 
 impl Display for ErrorKind {
@@ -108,6 +109,9 @@ impl Display for ErrorKind {
             }
             ErrorKind::UndefinedVariable(name) => {
                 write!(f, "Variable '{}' has been declared but not initialized", name)
+            }
+            ErrorKind::NotLogicalOperator(token) => {
+                write!(f, "Token '{}' is not a logical operator", token)
             }
         }
     }

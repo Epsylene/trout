@@ -354,7 +354,7 @@ impl Parser {
             // and add branches to this subtree. 
             let operator = self.advance();
             let right = self.logical_and()?;
-            expr = Expr::binary(expr, operator, right);
+            expr = Expr::logical(expr, operator, right);
         }
 
         Ok(expr)
@@ -372,7 +372,7 @@ impl Parser {
         while self.match_next(TokenKind::And) {
             let operator = self.advance();
             let right = self.equality()?;
-            expr = Expr::binary(expr, operator, right);
+            expr = Expr::logical(expr, operator, right);
         }
 
         Ok(expr)

@@ -35,7 +35,7 @@ impl Environment {
     }
 
     pub fn define(&mut self, name: String, value: Option<Value>) {
-        // Defining of a variable either inserts a new (label,
+        // Defining a variable either inserts a new (label,
         // value) pair in the environment or updates a label
         // with a new value. Note here that we don't check if
         // the label already exists, nor the type of the value,

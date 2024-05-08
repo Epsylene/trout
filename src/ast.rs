@@ -76,6 +76,7 @@ pub enum Expr {
     Literal { value: Token },
     Unary { operator: Token, right: Box<Expr> },
     Binary { left: Box<Expr>, operator: Token, right: Box<Expr> },
+    Logical { left: Box<Expr>, operator: Token, right: Box<Expr> },
     Grouping { expression: Box<Expr> },
     Variable { name: Token },
     Assign { lhs: Token, rhs: Box<Expr> },
@@ -115,6 +116,14 @@ impl Expr {
         Expr::Assign {
             lhs: name,
             rhs: Box::new(value),
+        }
+    }
+
+    pub fn logical(left: Expr, operator: Token, right: Expr) -> Self {
+        Expr::Logical {
+            left: Box::new(left),
+            operator,
+            right: Box::new(right),
         }
     }
 }
@@ -172,6 +181,7 @@ impl Display for Expr {
             Expr::Literal { value } => write!(f, "{}", value.lexeme),
             Expr::Unary { operator, right } => write!(f, "({} {})", operator.lexeme, right),
             Expr::Binary { left, operator, right } => write!(f, "({} {} {})", operator.lexeme, left, right),
+            Expr::Logical { left, operator, right } => write!(f, "({} {} {})", operator.lexeme, left, right),
             Expr::Grouping { expression } => write!(f, "{}", expression),
             Expr::Variable { name } => write!(f, "{}", name.lexeme),
             Expr::Assign { lhs, rhs } => write!(f, "{} = {}", lhs.lexeme, rhs),
@@ -185,6 +195,7 @@ impl Debug for Expr {
             Expr::Literal { value } => write!(f, "Expr::Literal({:?})", value),
             Expr::Unary { operator, right } => write!(f, "Expr::Unary({:?}, {:?})", operator, right),
             Expr::Binary { left, operator, right } => write!(f, "Expr::Binary({:?}, {:?}, {:?})", left, operator, right),
+            Expr::Logical { left, operator, right } => write!(f, "Expr::Logical({:?}, {:?}, {:?})", left, operator, right),
             Expr::Grouping { expression } => write!(f, "Expr::Grouping({:?})", expression),
             Expr::Variable { name } => write!(f, "Expr::Variable({:?})", name),
             Expr::Assign { lhs, rhs } => write!(f, "Expr::Assign({:?}, {:?})", lhs, rhs),
