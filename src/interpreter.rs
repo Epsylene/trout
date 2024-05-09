@@ -45,6 +45,7 @@ impl Interpreter {
             Stmt::Block { statements } => self.block_stmt(statements),
             Stmt::If { condition, then_branch, else_branch } => self.if_stmt(condition, then_branch, else_branch.as_deref()),
             Stmt::While { condition, body } => self.while_stmt(condition, body),
+            Stmt::For { loop_var, start, stop, step, body } => self.for_stmt(loop_var, start, stop, step, body),
         }
     }
 
@@ -128,6 +129,51 @@ impl Interpreter {
             self.execute(body)?;
         }
         
+        Ok(None)
+    }
+
+    fn for_stmt(&mut self, loop_var: &Token, start: &Expr, stop: &Expr, step: &Option<Expr>, body: &Stmt) -> Result<Option<Value>> {
+        // The for loop is just syntactic sugar for a while
+        // loop with a counter variable. We want first to
+        // evaluate the start and stop expressions, checking
+        // that they are integers.
+
+        let mut get_integer = |val| {
+            let val = self.evaluate(val)?;
+            match val {
+                Value::Int(i) => Ok(i),
+                _ => Err(Error::new(
+                    &loop_var.location, 
+                    ErrorKind::ForStartStopStepInt)
+                ),
+            }
+        };
+
+        let start = get_integer(start)?;
+        let stop = get_integer(stop)?;
+
+        // Then we can do the same with the step value.
+        let step = match step {
+            Some(expr) => get_integer(expr)?,
+            None => 1,
+        };
+
+        // We can now execute the loop, initializing the loop
+        // variable to the start value.
+        let mut counter = start;
+        self.environment.define(loop_var.lexeme.clone(), Some(Value::Int(start)));
+
+        while counter < stop {
+            // The loop condition is that the loop variable is
+            // less than the stop value. After checking the
+            // condition, we can execute the body of the loop.
+            self.execute(body)?;
+
+            // Then, the counter is updated by the step value.
+            counter += step;
+            self.environment.assign(loop_var.lexeme.clone(), Value::Int(counter));
+        }
+
         Ok(None)
     }
     
@@ -432,4 +478,9 @@ fn zero_like(val: Value) -> bool {
         Value::Float(f) => f == 0.0,
         _ => false,
     }
+}
+
+fn is_integer(val: &Value) -> bool {
+    // A value is an integer if it is an integer.
+    matches!(val, Value::Int(_))
 }

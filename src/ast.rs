@@ -67,11 +67,13 @@ use crate::token::Token;
 // An expression is something that ultimately produces a value.
 // Expression in our language can be either:
 // - A literal (number, string, boolean, or nil);
-// - A unary operation (a single ! or - operator followed by an
+// - A unary operation (an operator applied on a single
 //   expression)
 // - A binary operation (two expressions separated by an
 //   operator)
 // - A grouping (an expression enclosed in parentheses)
+// - A variable (a reference to a value)
+// - An assignment (putting a new value into a variable)
 pub enum Expr {
     Literal { value: Token },
     Unary { operator: Token, right: Box<Expr> },
@@ -128,11 +130,11 @@ impl Expr {
     }
 }
 
-// In imperative programming, a statement is a construct
-// expressing some action to be carried out: declarations
-// specify the data on which a program is to operate, while
-// statements specify the actions to be taken with that data.
-// In our language, statements are either:
+// A statement is a construct expressing some action to be
+// carried out: declarations specify the data on which a
+// program is to operate, while statements specify the actions
+// to be taken with that data. In our language, statements are
+// either:
 // - An expression ("1 + 2 / 3"), producing a value;
 // - A print statement ("print expr"), printing the value of
 //   the argument expression;
@@ -141,6 +143,14 @@ impl Expr {
 //   expression;
 // - A block ("{ stmt1; stmt2; ... }"), enclosing a sequence of
 //   statements in a scope.
+// - An if statement ("if expr block [else block]"), executing
+//   the first block if the condition is true, the second block
+//   if it is false.
+// - A while statement ("while expr block"), executing the
+//   block while the condition is true.
+// - A for statement ("for var = start..stop [..step] block"),
+//   executing the block for each value of the variable from
+//   start to stop, optionally with a step.
 pub enum Stmt {
     Expression { expression: Expr },
     Print { expression: Expr },
@@ -148,6 +158,7 @@ pub enum Stmt {
     Block { statements: Vec<Stmt> },
     If { condition: Expr, then_branch: Box<Stmt>, else_branch: Option<Box<Stmt>> },
     While { condition: Expr, body: Box<Stmt> },
+    For { loop_var: Token, start: Expr, stop: Expr, step: Option<Expr>, body: Box<Stmt> },
 }
 
 impl Stmt {
@@ -178,6 +189,16 @@ impl Stmt {
     pub fn while_stmt(condition: Expr, body: Stmt) -> Self {
         Stmt::While {
             condition,
+            body: Box::new(body),
+        }
+    }
+
+    pub fn for_stmt(loop_var: Token, start: Expr, stop: Expr, step: Option<Expr>, body: Stmt) -> Self {
+        Stmt::For {
+            loop_var,
+            start,
+            stop,
+            step,
             body: Box::new(body),
         }
     }
@@ -238,6 +259,15 @@ impl Display for Stmt {
             Stmt::While { condition, body } => {
                 write!(f, "while {} {}", condition, body)
             }
+            Stmt::For { loop_var, start, stop, step, body } => {
+                write!(f, "for {} = {}..{} ", loop_var.lexeme, start, stop)?;
+                if let Some(step) = step {
+                    write!(f, "..{} ", step)
+                } else {
+                    Ok(())
+                }?;
+                write!(f, "{}", body)
+            }
         }
     }
 }
@@ -251,6 +281,7 @@ impl Debug for Stmt {
             Stmt::Block { statements } => write!(f, "Stmt::Block({:?})", statements),
             Stmt::If { condition, then_branch, else_branch } => write!(f, "Stmt::If({:?}, {:?}, {:?})", condition, then_branch, else_branch),
             Stmt::While { condition, body } => write!(f, "Stmt::While({:?}, {:?})", condition, body),
+            Stmt::For { loop_var, start, stop, step, body } => write!(f, "Stmt::For({:?}, {:?}, {:?}, {:?}, {:?})", loop_var, start, stop, step, body),
         }
     }
 }

@@ -11,7 +11,7 @@ pub enum TokenKind {
     Equal, EqualEqual,
     Greater, GreaterEqual,
     Less, LessEqual,
-    Or, And,
+    Or, And, DotDot,
 
     // Literals
     Identifier, String, Number,

@@ -151,7 +151,6 @@ impl Scanner {
             '{' => TokenKind::LeftBrace,
             '}' => TokenKind::RightBrace,
             ',' => TokenKind::Comma,
-            '.' => TokenKind::Dot,
             '-' => TokenKind::Minus,
             '+' => TokenKind::Plus,
             ';' => TokenKind::Semicolon,
@@ -162,6 +161,7 @@ impl Scanner {
             '=' => self.match_next('=', TokenKind::EqualEqual, TokenKind::Equal),
             '<' => self.match_next('=', TokenKind::LessEqual, TokenKind::Less),
             '>' => self.match_next('=', TokenKind::GreaterEqual, TokenKind::Greater),
+            '.' => self.match_next('.', TokenKind::DotDot, TokenKind::Dot),
             '&' => {
                 if self.advance() == '&' {
                     TokenKind::And

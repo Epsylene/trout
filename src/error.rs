@@ -40,6 +40,8 @@ pub enum ErrorKind {
     ExpectedSeparator,
     ExpectedIdentifier,
     ExpectedRightBrace,
+    ForExpectedEqual,
+    ForExpectedDoubleDot,
 
     // Interpreter
     NotUnaryOperator(String),
@@ -49,6 +51,7 @@ pub enum ErrorKind {
     VariableNotDeclared(String),
     UndefinedVariable(String),
     NotLogicalOperator(String),
+    ForStartStopStepInt,
 }
 
 impl Display for ErrorKind {
@@ -90,6 +93,12 @@ impl Display for ErrorKind {
             ErrorKind::ExpectedRightBrace => {
                 write!(f, "Expected '}}' to end block")
             }
+            ErrorKind::ForExpectedEqual => {
+                write!(f, "Expected '=' after 'for' loop variable")
+            }
+            ErrorKind::ForExpectedDoubleDot => {
+                write!(f, "Expected '..' in 'for' loop between start and stop")
+            }
 
             // Interpreter
             ErrorKind::NotUnaryOperator(token) => {
@@ -112,6 +121,9 @@ impl Display for ErrorKind {
             }
             ErrorKind::NotLogicalOperator(token) => {
                 write!(f, "Token '{}' is not a logical operator", token)
+            }
+            ErrorKind::ForStartStopStepInt => {
+                write!(f, "The start, stop, and step values of a 'for' loop must be integers")
             }
         }
     }

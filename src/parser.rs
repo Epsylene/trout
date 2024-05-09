@@ -67,14 +67,16 @@ use crate::ast::{Expr, Stmt};
 //  program := (declaration | statement)* EOF
 //
 //  declaration := "var" IDENTIFIER ("=" expression)?
-//  statement := expr_stmt | print_stmt 
-//                  | block | if_stmt | while_stmt
+//  statement := expr_stmt | print_stmt | block 
+//                  | if_stmt | while_stmt | for_stmt
 //
 //  block := "{" declaration* "}"
 //  expr_stmt := expression
 //  print_stmt := "print" expression
 //  if_stmt := "if" expression block ("else" block)?
 //  while_stmt := "while" expression block
+//  for_stmt := "for" IDENTIFIER "=" expression ".."
+//              expression (".." expression)? block
 //
 //  expression := assignment
 //  assignment := IDENTIFIER "=" assignment | logical_or
@@ -190,13 +192,15 @@ impl Parser {
     }
 
     fn statement(&mut self) -> Result<Stmt> {
-        // statement := expr_stmt | print_stmt | block | if_stmt
+        // statement := expr_stmt | print_stmt | block
+        //  | if_stmt | while_stmt | for_stmt
 
         match self.zero().kind {
             TokenKind::Print => self.print_stmt(),
             TokenKind::If => self.if_stmt(),
             TokenKind::LeftBrace => self.block(),
             TokenKind::While => self.while_stmt(),
+            TokenKind::For => self.for_stmt(),
             _ => self.expr_stmt(),
         }
     }
@@ -288,6 +292,36 @@ impl Parser {
         let body = self.block()?;
 
         Ok(Stmt::while_stmt(condition, body))
+    }
+
+    fn for_stmt(&mut self) -> Result<Stmt> {
+        // for_stmt := "for" IDENTIFIER "=" expression ".."
+        //              expression (".." expression)? block
+
+        self.advance(); // Consume the "for" keyword
+
+        // The for statement first takes an identifier, which
+        // will be the loop variable.
+        let loop_var = self.consume(TokenKind::Identifier, ErrorKind::ExpectedIdentifier)?;
+        self.consume(TokenKind::Equal, ErrorKind::ForExpectedEqual)?;
+        
+        // Then a start value, given from an expression...
+        let start = self.expression()?;
+        self.consume(TokenKind::DotDot, ErrorKind::ForExpectedDoubleDot)?;
+        
+        // ...a stop value...
+        let stop = self.expression()?;
+        
+        // ...and optionally a step value.
+        let step = if self.match_next(TokenKind::DotDot) {
+            self.advance();
+            Some(self.expression()?)
+        } else {
+            None
+        };
+        let body = self.block()?;
+
+        Ok(Stmt::for_stmt(loop_var, start, stop, step, body))
     }
 
     fn expr_stmt(&mut self) -> Result<Stmt> {
