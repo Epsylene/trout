@@ -74,6 +74,7 @@ use crate::token::Token;
 // - A grouping (an expression enclosed in parentheses)
 // - A variable (a reference to a value)
 // - An assignment (putting a new value into a variable)
+#[derive(PartialEq)]
 pub enum Expr {
     Literal { value: Token },
     Unary { operator: Token, right: Box<Expr> },
@@ -151,6 +152,7 @@ impl Expr {
 // - A for statement ("for var = start..stop [..step] block"),
 //   executing the block for each value of the variable from
 //   start to stop, optionally with a step.
+#[derive(PartialEq)]
 pub enum Stmt {
     Expression { expression: Expr },
     Print { expression: Expr },

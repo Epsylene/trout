@@ -36,6 +36,12 @@ pub struct Location {
     pub column: u32,
 }
 
+impl Location {
+    pub fn new(line: u32, column: u32) -> Self {
+        Location { line, column }
+    }
+}
+
 impl From<(u32, u32)> for Location {
     fn from((line, column): (u32, u32)) -> Self {
         Location { line, column }

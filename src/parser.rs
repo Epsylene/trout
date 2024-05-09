@@ -562,3 +562,133 @@ impl Parser {
         // linear time, which is why it's widely used.
     }
 }
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use crate::literal::Value;
+    use crate::scanner::Scanner;
+    use crate::token::{TokenKind, Location};
+    type Result<T, E = Vec<Error>> = std::result::Result<T, E>;
+
+    fn parse(input: &str) -> Result<Vec<Stmt>> {
+        let mut scanner = Scanner::new(input);
+        let tokens = scanner.scan().unwrap();
+        let mut parser = Parser::new(tokens);
+        parser.parse()
+    }
+
+    #[test]
+    fn test_empty_program() {
+        let result = parse("");
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap().len(), 0);
+    }
+
+    #[test]
+    fn test_var_declaration() {
+        let result = parse("var a = 1;");
+        assert!(result.is_ok());
+        let stmts = result.unwrap();
+        assert_eq!(stmts.len(), 1);
+        assert_eq!(stmts[0], 
+            Stmt::var(
+                Token::new(TokenKind::Identifier, "a".to_string(), Value::Nil, Location::new(1, 5)),
+                Some(Expr::literal(Token::new(TokenKind::Number, "1".to_string(), Value::Int(1), Location::new(1, 9)))))
+        );
+    }
+
+    #[test]
+    fn test_print_statement() {
+        let result = parse("print 1;");
+        assert!(result.is_ok());
+        let stmts = result.unwrap();
+        assert_eq!(stmts.len(), 1);
+        assert_eq!(stmts[0],
+            Stmt::print(
+                Expr::literal(Token::new(TokenKind::Number, "1".to_string(), Value::Int(1), Location::new(1, 7)))
+            )
+        );
+    }
+
+    #[test]
+    fn test_block_statement() {
+        let result = parse("{ var a = 1; print a; }");
+        assert!(result.is_ok());
+        let stmts = result.unwrap();
+        assert_eq!(stmts.len(), 1);
+        assert_eq!(stmts[0],
+            Stmt::block(vec![
+                Stmt::var(
+                    Token::new(TokenKind::Identifier, "a".to_string(), Value::Nil, Location::new(1, 7)),
+                    Some(Expr::literal(Token::new(TokenKind::Number, "1".to_string(), Value::Int(1), Location::new(1, 11)))
+                )),
+                Stmt::print(
+                    Expr::variable(Token::new(TokenKind::Identifier, "a".to_string(), Value::Nil, Location::new(1, 20)))
+                )
+            ])
+        );
+    }
+
+    #[test]
+    fn test_if_statement() {
+        let result = parse("if true { print 1; } else { print 2; }");
+        assert!(result.is_ok());
+        let stmts = result.unwrap();
+        assert_eq!(stmts.len(), 1);
+        assert_eq!(stmts[0],
+            Stmt::if_stmt(
+                Expr::literal(Token::new(TokenKind::True, "true".to_string(), Value::Bool(true), Location::new(1, 4))),
+                Stmt::block(vec![
+                    Stmt::print(
+                        Expr::literal(Token::new(TokenKind::Number, "1".to_string(), Value::Int(1), Location::new(1, 17)))
+                    )
+                ]),
+                Some(Stmt::block(vec![
+                    Stmt::print(
+                        Expr::literal(Token::new(TokenKind::Number, "2".to_string(), Value::Int(2), Location::new(1, 35)))
+                    )
+                ]))
+            )
+        );
+    }
+
+    #[test]
+    fn test_while_statement() {
+        let result = parse("while true { print 1; }");
+        assert!(result.is_ok());
+        let stmts = result.unwrap();
+        assert_eq!(stmts.len(), 1);
+        assert_eq!(stmts[0],
+            Stmt::while_stmt(
+                Expr::literal(Token::new(TokenKind::True, "true".to_string(), Value::Bool(true), Location::new(1, 7))),
+                Stmt::block(vec![
+                    Stmt::print(
+                        Expr::literal(Token::new(TokenKind::Number, "1".to_string(), Value::Int(1), Location::new(1, 20)))
+                    )
+                ])
+            )
+        );
+    }
+
+    #[test]
+    fn test_for_statement() {
+        let result = parse("for i = 0..10 { print i; }");
+        assert!(result.is_ok());
+        let stmts = result.unwrap();
+        assert_eq!(stmts.len(), 1);
+        assert_eq!(stmts[0],
+            Stmt::for_stmt(
+                Token::new(TokenKind::Identifier, "i".to_string(), Value::Nil, Location::new(1, 5)),
+                Expr::literal(Token::new(TokenKind::Number, "0".to_string(), Value::Int(0), Location::new(1, 9))),
+                Expr::literal(Token::new(TokenKind::Number, "10".to_string(), Value::Int(10), Location::new(1, 12))),
+                None,
+                Stmt::block(vec![
+                    Stmt::print(
+                        Expr::variable(Token::new(TokenKind::Identifier, "i".to_string(), Value::Nil, Location::new(1, 23)))
+                    )
+                ])
+            )
+        );
+    }
+}

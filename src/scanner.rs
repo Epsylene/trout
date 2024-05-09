@@ -483,10 +483,10 @@ mod tests {
         let tokens = scanner.scan().unwrap();
 
         let expected = vec![
-            Token::new(TokenKind::Var, "var".to_string(), LiteralType::Nil, (1, 1).into()),
-            Token::new(TokenKind::Identifier, "a".to_string(), LiteralType::Nil, (1, 5).into()),
-            Token::new(TokenKind::Equal, "=".to_string(), LiteralType::Nil, (1, 7).into()),
-            Token::new(TokenKind::Number, "0".to_string(), LiteralType::Int(0), (1, 9).into()),
+            Token::new(TokenKind::Var, "var".to_string(), LiteralType::Nil, Location::new(1,1)),
+            Token::new(TokenKind::Identifier, "a".to_string(), LiteralType::Nil, Location::new(1,5)),
+            Token::new(TokenKind::Equal, "=".to_string(), LiteralType::Nil, Location::new(1,7)),
+            Token::new(TokenKind::Number, "0".to_string(), LiteralType::Int(0), Location::new(1,9)),
             Token::eof((1, 10).into()),
         ];
 
@@ -500,8 +500,8 @@ mod tests {
         let tokens = scanner.scan().unwrap();
 
         let expected = vec![
-            Token::new(TokenKind::Number, "123".to_string(), LiteralType::Int(123), (1, 1).into()),
-            Token::new(TokenKind::Number, "123.456".to_string(), LiteralType::Float(123.456), (1, 5).into()),
+            Token::new(TokenKind::Number, "123".to_string(), LiteralType::Int(123), Location::new(1,1)),
+            Token::new(TokenKind::Number, "123.456".to_string(), LiteralType::Float(123.456), Location::new(1,5)),
             Token::new(TokenKind::Number, "3".to_string(), LiteralType::Int(3), (1, 13).into()),
             Token::new(TokenKind::Dot, ".".to_string(), LiteralType::Nil, (1, 14).into()),
             Token::eof((1, 15).into()),
@@ -517,8 +517,25 @@ mod tests {
         let tokens = scanner.scan().unwrap();
 
         let expected = vec![
-            Token::new(TokenKind::String, "Hello, world!".to_string(), LiteralType::String("Hello, world!".to_string()), (1, 1).into()),
+            Token::new(TokenKind::String, "Hello, world!".to_string(), LiteralType::String("Hello, world!".to_string()), Location::new(1,1)),
             Token::eof((1, 16).into()),
+        ];
+
+        assert_eq!(tokens, expected);
+    }
+
+    #[test]
+    fn test_comments() {
+        let source = "var a = 0 // This is a comment";
+        let mut scanner = Scanner::new(source);
+        let tokens = scanner.scan().unwrap();
+
+        let expected = vec![
+            Token::new(TokenKind::Var, "var".to_string(), LiteralType::Nil, Location::new(1,1)),
+            Token::new(TokenKind::Identifier, "a".to_string(), LiteralType::Nil, Location::new(1,5)),
+            Token::new(TokenKind::Equal, "=".to_string(), LiteralType::Nil, Location::new(1,7)),
+            Token::new(TokenKind::Number, "0".to_string(), LiteralType::Int(0), Location::new(1,9)),
+            Token::eof((1, 31).into()),
         ];
 
         assert_eq!(tokens, expected);

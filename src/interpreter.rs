@@ -480,7 +480,76 @@ fn zero_like(val: Value) -> bool {
     }
 }
 
-fn is_integer(val: &Value) -> bool {
-    // A value is an integer if it is an integer.
-    matches!(val, Value::Int(_))
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::literal::Value;
+    use crate::scanner::Scanner;
+    use crate::parser::Parser;
+
+    fn interpret(input: &str) -> Option<Value> {
+        let mut scanner = Scanner::new(input);
+        let tokens = scanner.scan().unwrap();
+        let mut parser = Parser::new(tokens);
+        let program = parser.parse().unwrap();
+        let mut interpreter = Interpreter::new();
+        
+        interpreter.interpret(&program).unwrap()
+    }
+
+    #[test]
+    fn test_declaration() {
+        let input = "var a = 5; a;";
+        let res = interpret(input);
+        assert_eq!(res, Some(Value::Int(5)));
+    }
+
+    #[test]
+    fn test_assignment() {
+        let input = "var a = 5; a = 6; a;";
+        let res = interpret(input);
+        assert_eq!(res, Some(Value::Int(6)));
+    }
+
+    #[test]
+    fn test_print() {
+        let input = "print 5;";
+        let res = interpret(input);
+        assert_eq!(res, None);
+    }
+
+    #[test]
+    fn test_expression() {
+        let input = "5 + 6;";
+        let res = interpret(input);
+        assert_eq!(res, Some(Value::Int(11)));
+    }
+
+    #[test]
+    fn test_grouping() {
+        let input = "(5 + 6) * 2;";
+        let res = interpret(input);
+        assert_eq!(res, Some(Value::Int(22)));
+    }
+
+    #[test]
+    fn test_if() {
+        let input = "var a = 5; if a < 6 { a = 6; } a;";
+        let res = interpret(input);
+        assert_eq!(res, Some(Value::Int(6)));
+    }
+
+    #[test]
+    fn test_while() {
+        let input = "var a = 5; while a < 6 { a = a + 1; } a;";
+        let res = interpret(input);
+        assert_eq!(res, Some(Value::Int(6)));
+    }
+
+    #[test]
+    fn test_for() {
+        let input = "var a = 0; for i=0..5 { a = i; } a;";
+        let res = interpret(input);
+        assert_eq!(res, Some(Value::Int(4)));
+    }
 }
