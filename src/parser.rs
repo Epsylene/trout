@@ -569,9 +569,8 @@ mod test {
     use crate::literal::Value;
     use crate::scanner::Scanner;
     use crate::token::{TokenKind, Location};
-    type Result<T, E = Vec<Error>> = std::result::Result<T, E>;
 
-    fn parse(input: &str) -> Result<Vec<Stmt>> {
+    fn parse(input: &str) -> Result<Vec<Stmt>, Vec<Error>> {
         let mut scanner = Scanner::new(input);
         let tokens = scanner.scan().unwrap();
         let mut parser = Parser::new(tokens);

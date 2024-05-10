@@ -174,6 +174,30 @@ impl Interpreter {
             self.environment.assign(loop_var.lexeme.clone(), Value::Int(counter));
         }
 
+        // Note: given that a for loop in the form
+        //
+        //      for i=a..b..s { 
+        //          // statements 
+        //      }
+        //
+        // is equivalent to the following code:
+        //
+        //      var i = a;
+        //      while i < b {
+        //          // statements
+        //          i = i + s;
+        //      }
+        //
+        // we could have implemented the for loop directly in
+        // the parser as a combination of a declaration and a
+        // while loop with a body that includes the update of
+        // the counter variable. In theory, any syntax that can
+        // be "desugared" to a simpler sintax in the language
+        // does not need to be implemented but only parsed as a
+        // sum of the simpler statements; given the sintax of
+        // the for loop we went for, though, it was simpler to
+        // implement it as its own statement.
+
         Ok(None)
     }
     

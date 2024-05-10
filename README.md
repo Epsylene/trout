@@ -23,13 +23,19 @@ The language is a simple dynamically-typed language with the following sintax:
 - Print statement: `print 10;`
 
 ### Binary operators
-The arithmetic operators are binary infix operators with the usual precedence rules. Ints are casted to floats if the other operand is a float, except for the division `/`, where both a operands are casted to floats. The `+` operator is overloaded to concatenate strings.
+1. Arithmetic operators are binary infix operators with the usual precedence rules. Ints are casted to floats if the other operand is a float, except for the division `/`, where both a operands are casted to floats. The `+` operator is overloaded to concatenate strings.
 
-The comparison operators only accept numbers, casting ints to floats if one of the operands is a float. The equality operators `==` and `!=` can be used with any two types.
+2. Comparison operators only accept numbers, casting ints to floats if one of the operands is a float. The equality operators `==` and `!=` can be used with any two types.
 
-The logical operators are `and` and `or`, the first taking precedence over the second. Operands can be of any type, with `false`, `nil`, `0` and `0.0` evaluated to false, and anything else to true.
-
-All binary operators are left-associative and can be chained (`a < b < c`). Logical operators take precedence over comparison operators, which take precedence over arithmetic operators.
+3. The logical operators are `&&` (AND) and `||` (OR), the first taking precedence over the second. Operands can be of any type, with `false`, `nil`, `0` and `0.0` evaluated to false, and anything else to true.
+   
+4. All binary operators are left-associative and can be chained (`a < b < c`). Logical operators take precedence over comparison operators, which take precedence over arithmetic operators.
 
 ### Variables and assignment
 Variables can be assigned and re-assigned to any value. Variables can be declared without an initial value, but they must be assigned before being used. Assignements are expressions that return the assigned value, so they can be used in other statements or expressions like `a = b = 5;` or `var x = (y = 10);`.
+
+### Conditionals and loops
+
+1. Conditionals are implemented with the `if` statement in the form `if condition { ... } else { ... }`. The `else` block is optional and can be omitted.
+2. `while` loops are implemented with the sintax `while condition { ... }`. The condition is evaluated before each iteration.
+3. `for` loops are implemented with the sintax `for i=a..b..s { ... }`. The loop variable `i` is initialized with value `a` and incremented by `s` at the end of each iteration; the loop runs while `i < b`. The increment `s` is optional and defaults to 1.
