@@ -1,8 +1,9 @@
-use crate::literal::Value;
+use crate::value::Value;
 use crate::token::{Token, TokenKind};
 use crate::error::{Error, ErrorKind, Result};
 use crate::ast::{Expr, Stmt};
 use crate::environment::Environment;
+use crate::function::Callable;
 
 pub struct Interpreter {
     // The interpreter needs to keep track of the environment
@@ -46,6 +47,7 @@ impl Interpreter {
             Stmt::If { condition, then_branch, else_branch } => self.if_stmt(condition, then_branch, else_branch.as_deref()),
             Stmt::While { condition, body } => self.while_stmt(condition, body),
             Stmt::For { loop_var, start, stop, step, body } => self.for_stmt(loop_var, start, stop, step, body),
+            Stmt::Function { name, params, body } => self.function(name, params, body),
         }
     }
 
@@ -201,6 +203,21 @@ impl Interpreter {
         Ok(None)
     }
     
+    fn function(&mut self, name: &Token, params: &[Token], body: &Stmt) -> Result<Option<Value>> {
+        // A function is defined by its name, its parameters,
+        // and its body.
+        let function = Value::function(name, params, body);
+
+        // The function is stored in the environment, because
+        // it is an object (a value) like any other.
+        self.environment.define(
+            name.lexeme.clone(), 
+            Some(function)
+        );
+
+        Ok(None)
+    }
+
     fn evaluate(&mut self, expr: &Expr) -> Result<Value> {
         // However complicated, an expression is just the
         // composition of 4 different types of subexpressions:
@@ -225,12 +242,13 @@ impl Interpreter {
             Expr::Grouping { expression } => self.grouping(expression),
             Expr::Variable { name } => self.variable(name),
             Expr::Assign { lhs, rhs } => self.assign(lhs, rhs),
+            Expr::Call { callee, arguments, close_paren } => self.call(callee, arguments, close_paren),
         }
     }
     
     fn literal(&self, token: &Token) -> Result<Value> {
         // The value of a literal is the literal value.
-        Ok(token.literal.clone())
+        Ok(token.literal.clone().into())
     }
 
     fn variable(&self, name: &Token) -> Result<Value> {
@@ -269,6 +287,40 @@ impl Interpreter {
                 &lhs.location, 
                 ErrorKind::VariableNotDeclared(lhs.lexeme.clone()))
             )
+        }
+    }
+
+    fn call(&mut self, callee: &Expr, arguments: &[Expr], close_paren: &Token) -> Result<Value> {
+        // We first need to evaluate the callee expression to
+        // get what is calling (an identifier, another function
+        // call, etc).
+        let callee = self.evaluate(callee)?;
+        
+        // Then evaluate the arguments.
+        let mut args = Vec::new();
+        for arg in arguments {
+            args.push(self.evaluate(arg)?);
+        }
+        
+        // Finally, we can call the function. 
+        match callee {
+            Value::Function(f) => {
+                // Check that the number of arguments is
+                // correct...
+                if f.arity() != args.len() {
+                    return Err(Error::new(
+                        &close_paren.location,
+                        ErrorKind::FunctionArity(f.arity(), args.len()))
+                    );
+                }
+
+                // ...and only then actually call the function.
+                f.call(self, args)
+            }
+            _ => Err(Error::new(
+                &close_paren.location,
+                ErrorKind::NotCallable)
+            ),
         }
     }
     
@@ -507,7 +559,7 @@ fn zero_like(val: Value) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::literal::Value;
+    use crate::value::Value;
     use crate::scanner::Scanner;
     use crate::parser::Parser;
 
@@ -575,5 +627,12 @@ mod tests {
         let input = "var a = 0; for i=0..5 { a = i; } a;";
         let res = interpret(input);
         assert_eq!(res, Some(Value::Int(4)));
+    }
+
+    #[test]
+    fn test_blocks() {
+        let input = "var a = 5; { var b = 6; a = b; } a;";
+        let res = interpret(input);
+        assert_eq!(res, Some(Value::Int(6)));
     }
 }

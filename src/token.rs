@@ -17,7 +17,7 @@ pub enum TokenKind {
     Identifier, String, Number,
 
     // Keywords
-    Class, Else, False, Fun, For, If, Nil,
+    Class, Else, False, Fn, For, If, Nil,
     Print, Return, Super, This, True, Var, While,
 
     // Comments

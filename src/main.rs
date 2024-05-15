@@ -2,7 +2,7 @@ use std::{env, fs, io::{self, Write}};
 use interpreter::Interpreter;
 use scanner::Scanner;
 use parser::Parser;
-use literal::Value;
+use value::Value;
 use error::AppError;
 
 mod literal;
@@ -13,6 +13,8 @@ mod ast;
 mod parser;
 mod interpreter;
 mod environment;
+mod function;
+mod value;
 
 fn run_prompt() -> Result<(), AppError> {
     // REPL loop (Read-Eval-Print-Loop): a simple interactive

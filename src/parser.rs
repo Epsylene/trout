@@ -66,7 +66,11 @@ use crate::ast::{Expr, Stmt};
 //
 //  program := (declaration | statement)* EOF
 //
-//  declaration := "var" IDENTIFIER ("=" expression)?
+//  declaration := var_decl | fn_decl
+//  var_decl := "var" IDENTIFIER ("=" expression)?
+//  fn_decl := "fn" IDENTIFIER "(" parameters? ")" block
+//  parameters := IDENTIFIER ("," IDENTIFIER)*
+//
 //  statement := expr_stmt | print_stmt | block 
 //                  | if_stmt | while_stmt | for_stmt
 //
@@ -86,9 +90,11 @@ use crate::ast::{Expr, Stmt};
 //  comparison := term ( ( ">" | ">=" | "<" | "<=" | "and" | "or" ) term )*
 //  term       := factor ( ( "-" | "+" ) factor )*
 //  factor     := unary ( ( "/" | "*" ) unary )*
-//  unary      := ( "!" | "-" ) unary | primary
+//  unary      := ( "!" | "-" ) unary | call
+//  call       := primary ( "(" arguments? ")" )*
 //  primary    := NUMBER | STRING | "true" | "false" | "nil" 
 //                  | "(" expression ")" | IDENTIFIER
+//  arguments  := expression ( "," expression )*
 pub struct Parser {
     tokens: Vec<Token>,
     current: usize,
@@ -157,26 +163,62 @@ impl Parser {
 
     fn traverse(&mut self) -> Option<Result<Stmt>> {
         // Choose between:
-        if self.match_next(&[TokenKind::Semicolon, TokenKind::Newline]) {
-            // - An empty statement;
-            self.advance();
-            None
-        } else if self.match_next(TokenKind::Var) {
-            // - A declaration;
-            self.advance();
-            Some(self.declaration())
-        } else {
+        match self.zero().kind {
+            // - An empty statement (an extra semicolon or a
+            //   blank line, for example)
+            TokenKind::Semicolon | TokenKind::Newline => {
+                self.advance();
+                None
+            },
+            // - A variable declaration;
+            TokenKind::Var => Some(self.declaration()),
+            // - A function declaration;
+            TokenKind::Fn => Some(self.function()),
             // - A regular statement.
-            Some(self.statement())
+            _ => Some(self.statement()),
         }
     }
 
+    fn function(&mut self) -> Result<Stmt> {
+        // fn_decl := "fn" IDENTIFIER "(" parameters? ")" block
+        self.advance(); // Consume the "fn" keyword
+
+        // A function declaration is first comprised of a name,
+        // which is an identifier...
+        let name = self.consume(TokenKind::Identifier, ErrorKind::ExpectedIdentifierFn)?;
+        self.consume(TokenKind::LeftParen, ErrorKind::ExpectedLeftParenFn)?;
+
+        // ...followed by a list of parameters, which are also
+        // identifiers.
+        let mut parameters = Vec::new();
+        while !self.match_next(TokenKind::RightParen) {
+            // Consume the parameter and add it to the list.
+            parameters.push(self.consume(TokenKind::Identifier, ErrorKind::ExpectedIdentifierArg)?);
+
+            // Check the comma separating parameters...
+            if !self.match_next(TokenKind::Comma) {
+                break;
+            }
+
+            // ...and consume it.
+            self.advance();
+        }
+
+        // After the parameters, comes the body of the
+        // function, which is just a block of statements.
+        self.consume(TokenKind::RightParen, ErrorKind::ExpectedRightParenFn)?;
+        let body = self.block()?;
+
+        Ok(Stmt::function(name, parameters, body))
+    }
+
     fn declaration(&mut self) -> Result<Stmt> {
-        // declaration := "var" IDENTIFIER ("=" expression)?
+        // var_decl := "var" IDENTIFIER ("=" expression)?
 
         // A variable declaration is comprised of an
         // identifier, following the "var" keyword...
-        let name = self.consume(TokenKind::Identifier, ErrorKind::ExpectedIdentifier)?;
+        self.advance(); // Consume the "var" keyword
+        let name = self.consume(TokenKind::Identifier, ErrorKind::ExpectedIdentifierAssignment)?;
         
         // ...and optionally an initializer expression.
         let initializer = if self.match_next(TokenKind::Equal) {
@@ -302,7 +344,7 @@ impl Parser {
 
         // The for statement first takes an identifier, which
         // will be the loop variable.
-        let loop_var = self.consume(TokenKind::Identifier, ErrorKind::ExpectedIdentifier)?;
+        let loop_var = self.consume(TokenKind::Identifier, ErrorKind::ExpectedIdentifierAssignment)?;
         self.consume(TokenKind::Equal, ErrorKind::ForExpectedEqual)?;
         
         // Then a start value, given from an expression...
@@ -378,7 +420,7 @@ impl Parser {
             } else {
                 return Err(Error::new(
                     &equals.location,
-                    ErrorKind::ExpectedIdentifier
+                    ErrorKind::ExpectedIdentifierAssignment
                 ));
             }
         }
@@ -515,8 +557,60 @@ impl Parser {
             
             Ok(Expr::unary(operator, right))
         } else {
-            self.primary()
+            self.call()
         }
+    }
+
+    fn call(&mut self) -> Result<Expr> {
+        // call := primary ( "(" arguments? )*
+
+        // A call expression is a primary expression (an
+        // identifier, typically)...
+        let mut expr = self.primary()?;
+
+        // ...followed by an argument list between parentheses.
+        // Since functions can return functions, we can have
+        // code of the form "f()()()...". To account for this,
+        // we keep parsing arguments while matching for left
+        // parens, and update each time the callee of the
+        // expression with the returned call expression (that
+        // is, f(a)(b,c) has callee f(a) and arglist (b,c), and
+        // f(a) has callee f and arglist (a)).
+        while self.match_next(TokenKind::LeftParen) {
+            expr = self.arguments(expr)?;
+        }
+
+        Ok(expr)
+    }
+
+    fn arguments(&mut self, callee: Expr) -> Result<Expr> {        
+        self.advance(); // Consume the left paren
+        let mut arguments = Vec::new();
+        
+        // While we have not reached the right paren, keep
+        // parsing arguments and adding them to the list.
+        while !self.match_next(TokenKind::RightParen) {
+            arguments.push(self.expression()?);
+
+            // If we do not encounter a comma after an
+            // argument, it means that we have reached the end
+            // of the argument list, and do not need to advance
+            // the parser anymore.
+            if !self.match_next(TokenKind::Comma) {
+                break;
+            }
+
+            // Otherwise, consume the comma and keep parsing.
+            self.advance();
+        }
+
+        // Consume the right paren.
+        let paren = self.consume(TokenKind::RightParen, ErrorKind::ExpectedRightParenFn)?;
+
+        // The result is a call expression with a single
+        // argument list, in the form f(...), which can then be
+        // composed with other calls.
+        Ok(Expr::call(callee, arguments, paren))
     }
 
     fn primary(&mut self) -> Result<Expr> {
@@ -536,7 +630,7 @@ impl Parser {
             let expr = self.expression()?;
             // ...then consume the right paren (while checking
             // that it is really there!)
-            self.consume(TokenKind::RightParen, ErrorKind::ExpectedRightParen)?;
+            self.consume(TokenKind::RightParen, ErrorKind::ExpectedRightParenGrouping)?;
 
             Ok(Expr::grouping(expr))
         } else if self.match_next(TokenKind::Identifier) {
@@ -566,7 +660,7 @@ impl Parser {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::literal::Value;
+    use crate::literal::LiteralType;
     use crate::scanner::Scanner;
     use crate::token::{TokenKind, Location};
 
@@ -592,8 +686,8 @@ mod test {
         assert_eq!(stmts.len(), 1);
         assert_eq!(stmts[0], 
             Stmt::var(
-                Token::new(TokenKind::Identifier, "a".to_string(), Value::Nil, Location::new(1, 5)),
-                Some(Expr::literal(Token::new(TokenKind::Number, "1".to_string(), Value::Int(1), Location::new(1, 9)))))
+                Token::new(TokenKind::Identifier, "a".to_string(), LiteralType::Nil, Location::new(1, 5)),
+                Some(Expr::literal(Token::new(TokenKind::Number, "1".to_string(), LiteralType::Int(1), Location::new(1, 9)))))
         );
     }
 
@@ -605,7 +699,7 @@ mod test {
         assert_eq!(stmts.len(), 1);
         assert_eq!(stmts[0],
             Stmt::print(
-                Expr::literal(Token::new(TokenKind::Number, "1".to_string(), Value::Int(1), Location::new(1, 7)))
+                Expr::literal(Token::new(TokenKind::Number, "1".to_string(), LiteralType::Int(1), Location::new(1, 7)))
             )
         );
     }
@@ -619,11 +713,11 @@ mod test {
         assert_eq!(stmts[0],
             Stmt::block(vec![
                 Stmt::var(
-                    Token::new(TokenKind::Identifier, "a".to_string(), Value::Nil, Location::new(1, 7)),
-                    Some(Expr::literal(Token::new(TokenKind::Number, "1".to_string(), Value::Int(1), Location::new(1, 11)))
+                    Token::new(TokenKind::Identifier, "a".to_string(), LiteralType::Nil, Location::new(1, 7)),
+                    Some(Expr::literal(Token::new(TokenKind::Number, "1".to_string(), LiteralType::Int(1), Location::new(1, 11)))
                 )),
                 Stmt::print(
-                    Expr::variable(Token::new(TokenKind::Identifier, "a".to_string(), Value::Nil, Location::new(1, 20)))
+                    Expr::variable(Token::new(TokenKind::Identifier, "a".to_string(), LiteralType::Nil, Location::new(1, 20)))
                 )
             ])
         );
@@ -637,15 +731,15 @@ mod test {
         assert_eq!(stmts.len(), 1);
         assert_eq!(stmts[0],
             Stmt::if_stmt(
-                Expr::literal(Token::new(TokenKind::True, "true".to_string(), Value::Bool(true), Location::new(1, 4))),
+                Expr::literal(Token::new(TokenKind::True, "true".to_string(), LiteralType::Bool(true), Location::new(1, 4))),
                 Stmt::block(vec![
                     Stmt::print(
-                        Expr::literal(Token::new(TokenKind::Number, "1".to_string(), Value::Int(1), Location::new(1, 17)))
+                        Expr::literal(Token::new(TokenKind::Number, "1".to_string(), LiteralType::Int(1), Location::new(1, 17)))
                     )
                 ]),
                 Some(Stmt::block(vec![
                     Stmt::print(
-                        Expr::literal(Token::new(TokenKind::Number, "2".to_string(), Value::Int(2), Location::new(1, 35)))
+                        Expr::literal(Token::new(TokenKind::Number, "2".to_string(), LiteralType::Int(2), Location::new(1, 35)))
                     )
                 ]))
             )
@@ -660,10 +754,10 @@ mod test {
         assert_eq!(stmts.len(), 1);
         assert_eq!(stmts[0],
             Stmt::while_stmt(
-                Expr::literal(Token::new(TokenKind::True, "true".to_string(), Value::Bool(true), Location::new(1, 7))),
+                Expr::literal(Token::new(TokenKind::True, "true".to_string(), LiteralType::Bool(true), Location::new(1, 7))),
                 Stmt::block(vec![
                     Stmt::print(
-                        Expr::literal(Token::new(TokenKind::Number, "1".to_string(), Value::Int(1), Location::new(1, 20)))
+                        Expr::literal(Token::new(TokenKind::Number, "1".to_string(), LiteralType::Int(1), Location::new(1, 20)))
                     )
                 ])
             )
@@ -678,13 +772,13 @@ mod test {
         assert_eq!(stmts.len(), 1);
         assert_eq!(stmts[0],
             Stmt::for_stmt(
-                Token::new(TokenKind::Identifier, "i".to_string(), Value::Nil, Location::new(1, 5)),
-                Expr::literal(Token::new(TokenKind::Number, "0".to_string(), Value::Int(0), Location::new(1, 9))),
-                Expr::literal(Token::new(TokenKind::Number, "10".to_string(), Value::Int(10), Location::new(1, 12))),
+                Token::new(TokenKind::Identifier, "i".to_string(), LiteralType::Nil, Location::new(1, 5)),
+                Expr::literal(Token::new(TokenKind::Number, "0".to_string(), LiteralType::Int(0), Location::new(1, 9))),
+                Expr::literal(Token::new(TokenKind::Number, "10".to_string(), LiteralType::Int(10), Location::new(1, 12))),
                 None,
                 Stmt::block(vec![
                     Stmt::print(
-                        Expr::variable(Token::new(TokenKind::Identifier, "i".to_string(), Value::Nil, Location::new(1, 23)))
+                        Expr::variable(Token::new(TokenKind::Identifier, "i".to_string(), LiteralType::Nil, Location::new(1, 23)))
                     )
                 ])
             )

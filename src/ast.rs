@@ -71,10 +71,15 @@ use crate::token::Token;
 //   expression)
 // - A binary operation (two expressions separated by an
 //   operator)
+// - A logical operation (two expressions combined with a
+//   logical operator)
 // - A grouping (an expression enclosed in parentheses)
 // - A variable (a reference to a value)
 // - An assignment (putting a new value into a variable)
-#[derive(PartialEq)]
+// - A function call (a function applied to a list of
+//   arguments; the "paren" field is the closing parenthesis,
+//   used for error reporting)
+#[derive(Clone, PartialEq)]
 pub enum Expr {
     Literal { value: Token },
     Unary { operator: Token, right: Box<Expr> },
@@ -83,6 +88,7 @@ pub enum Expr {
     Grouping { expression: Box<Expr> },
     Variable { name: Token },
     Assign { lhs: Token, rhs: Box<Expr> },
+    Call { callee: Box<Expr>, arguments: Vec<Expr>, close_paren: Token},
 }
 
 impl Expr {
@@ -129,6 +135,14 @@ impl Expr {
             right: Box::new(right),
         }
     }
+
+    pub fn call(callee: Expr, arguments: Vec<Expr>, paren: Token) -> Self {
+        Expr::Call {
+            callee: Box::new(callee),
+            arguments,
+            close_paren: paren,
+        }
+    }
 }
 
 // A statement is a construct expressing some action to be
@@ -152,7 +166,10 @@ impl Expr {
 // - A for statement ("for var = start..stop [..step] block"),
 //   executing the block for each value of the variable from
 //   start to stop, optionally with a step.
-#[derive(PartialEq)]
+// - A function declaration ("fn name(params) block"), defining
+//   a function with a name, a list of parameters, and a block
+//   of statements to execute.
+#[derive(Clone, PartialEq)]
 pub enum Stmt {
     Expression { expression: Expr },
     Print { expression: Expr },
@@ -161,6 +178,7 @@ pub enum Stmt {
     If { condition: Expr, then_branch: Box<Stmt>, else_branch: Option<Box<Stmt>> },
     While { condition: Expr, body: Box<Stmt> },
     For { loop_var: Token, start: Expr, stop: Expr, step: Option<Expr>, body: Box<Stmt> },
+    Function { name: Token, params: Vec<Token>, body: Box<Stmt> },
 }
 
 impl Stmt {
@@ -204,6 +222,14 @@ impl Stmt {
             body: Box::new(body),
         }
     }
+
+    pub fn function(name: Token, params: Vec<Token>, body: Stmt) -> Self {
+        Stmt::Function {
+            name,
+            params,
+            body: Box::new(body),
+        }
+    }
 }
 
 impl Display for Expr {
@@ -216,6 +242,13 @@ impl Display for Expr {
             Expr::Grouping { expression } => write!(f, "{}", expression),
             Expr::Variable { name } => write!(f, "{}", name.lexeme),
             Expr::Assign { lhs, rhs } => write!(f, "{} = {}", lhs.lexeme, rhs),
+            Expr::Call { callee, arguments, close_paren: _ } => {
+                write!(f, "{}(", callee)?;
+                for arg in arguments {
+                    write!(f, "{}, ", arg)?;
+                }
+                write!(f, ")")
+            }
         }
     }
 }
@@ -230,6 +263,9 @@ impl Debug for Expr {
             Expr::Grouping { expression } => write!(f, "Expr::Grouping({:?})", expression),
             Expr::Variable { name } => write!(f, "Expr::Variable({:?})", name),
             Expr::Assign { lhs, rhs } => write!(f, "Expr::Assign({:?}, {:?})", lhs, rhs),
+            Expr::Call { callee, arguments, close_paren: _ } => {
+                write!(f, "Expr::Call({:?}, {:?})", callee, arguments)
+            }
         }
     }
 }
@@ -237,11 +273,11 @@ impl Debug for Expr {
 impl Display for Stmt {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         match self {
-            Stmt::Expression { expression } => write!(f, "{};", expression),
-            Stmt::Print { expression } => write!(f, "print {};", expression),
+            Stmt::Expression { expression } => write!(f, "{}", expression),
+            Stmt::Print { expression } => write!(f, "print {}", expression),
             Stmt::Var { name, initializer } => match initializer {
-                    Some(expr) => write!(f, "var {} = {};", name.lexeme, expr),
-                    None => write!(f, "var {};", name.lexeme)
+                    Some(expr) => write!(f, "var {} = {}", name.lexeme, expr),
+                    None => write!(f, "var {}", name.lexeme)
                 },
             Stmt::Block { statements } => {
                 writeln!(f, "{{\n")?;
@@ -270,6 +306,14 @@ impl Display for Stmt {
                 }?;
                 write!(f, "{}", body)
             }
+            Stmt::Function { name, params, body } => {
+                write!(f, "fn {}(", name.lexeme)?;
+                for param in params {
+                    write!(f, "{}, ", param.lexeme)?;
+                }
+                write!(f, ") ")?;
+                write!(f, "{}", body)
+            }
         }
     }
 }
@@ -284,6 +328,7 @@ impl Debug for Stmt {
             Stmt::If { condition, then_branch, else_branch } => write!(f, "Stmt::If({:?}, {:?}, {:?})", condition, then_branch, else_branch),
             Stmt::While { condition, body } => write!(f, "Stmt::While({:?}, {:?})", condition, body),
             Stmt::For { loop_var, start, stop, step, body } => write!(f, "Stmt::For({:?}, {:?}, {:?}, {:?}, {:?})", loop_var, start, stop, step, body),
+            Stmt::Function { name, params, body } => write!(f, "Stmt::Function({:?}, {:?}, {:?})", name, params, body),
         }
     }
 }

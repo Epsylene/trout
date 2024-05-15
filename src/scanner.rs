@@ -461,7 +461,7 @@ fn get_keyword(keyword: &str) -> TokenKind {
         "else" => TokenKind::Else,
         "for" => TokenKind::For,
         "while" => TokenKind::While,
-        "fun" => TokenKind::Fun,
+        "fn" => TokenKind::Fn,
         "nil" => TokenKind::Nil,
         "print" => TokenKind::Print,
         "return" => TokenKind::Return,

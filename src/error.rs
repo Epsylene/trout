@@ -36,12 +36,16 @@ pub enum ErrorKind {
 
     // Parser
     IncorrectPrimary(String),
-    ExpectedRightParen,
+    ExpectedRightParenGrouping,
     ExpectedSeparator,
-    ExpectedIdentifier,
+    ExpectedIdentifierAssignment,
     ExpectedRightBrace,
     ForExpectedEqual,
     ForExpectedDoubleDot,
+    ExpectedIdentifierFn,
+    ExpectedLeftParenFn,
+    ExpectedIdentifierArg,
+    ExpectedRightParenFn,
 
     // Interpreter
     NotUnaryOperator(String),
@@ -52,6 +56,8 @@ pub enum ErrorKind {
     UndefinedVariable(String),
     NotLogicalOperator(String),
     ForStartStopStepInt,
+    NotCallable,
+    FunctionArity(usize, usize)
 }
 
 impl Display for ErrorKind {
@@ -81,13 +87,13 @@ impl Display for ErrorKind {
             ErrorKind::IncorrectPrimary(token) => {
                 write!(f, "Could not parse: token '{}' did not match a literal (number, string, true, false, nil) or a grouping", token)
             }
-            ErrorKind::ExpectedRightParen => {
-                write!(f, "Expected ')' after expression")
+            ErrorKind::ExpectedRightParenGrouping => {
+                write!(f, "Expected ')' to close grouping")
             }
             ErrorKind::ExpectedSeparator => {
                 write!(f, "Expected separator (semicolon or newline) after statement")
             }
-            ErrorKind::ExpectedIdentifier => {
+            ErrorKind::ExpectedIdentifierAssignment => {
                 write!(f, "Invalid assignment target: expected identifier")
             }
             ErrorKind::ExpectedRightBrace => {
@@ -98,6 +104,18 @@ impl Display for ErrorKind {
             }
             ErrorKind::ForExpectedDoubleDot => {
                 write!(f, "Expected '..' in 'for' loop between start and stop")
+            }
+            ErrorKind::ExpectedIdentifierFn => {
+                write!(f, "Expected identifier after 'fn'")
+            }
+            ErrorKind::ExpectedLeftParenFn => {
+                write!(f, "Expected '(' to open argument list")
+            }
+            ErrorKind::ExpectedIdentifierArg => {
+                write!(f, "Expected identifier in argument list")
+            }
+            ErrorKind::ExpectedRightParenFn => {
+                write!(f, "Expected ')' to close argument list")
             }
 
             // Interpreter
@@ -124,6 +142,12 @@ impl Display for ErrorKind {
             }
             ErrorKind::ForStartStopStepInt => {
                 write!(f, "The start, stop, and step values of a 'for' loop must be integers")
+            }
+            ErrorKind::NotCallable => {
+                write!(f, "Value is not callable")
+            }
+            ErrorKind::FunctionArity(expected, got) => {
+                write!(f, "Function expected {} arguments, got {}", expected, got)
             }
         }
     }

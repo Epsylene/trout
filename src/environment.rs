@@ -1,7 +1,10 @@
-use std::collections::HashMap;
-use std::collections::hash_map::Entry;
-use std::fmt::Debug;
-use crate::literal::Value;
+use std::{
+    collections::HashMap,
+    collections::hash_map::Entry,
+    fmt::Debug,
+};
+
+use crate::value::Value;
 
 // The "environment" of the program is all the data that it has
 // created and is handling as part of its execution. All
