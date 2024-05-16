@@ -9,7 +9,7 @@ pub struct Interpreter {
     // The interpreter needs to keep track of the environment
     // in which the program is running, so that it can store
     // and retrieve variables.
-    environment: Environment,
+    pub environment: Environment,
 }
 
 impl Interpreter {
@@ -634,5 +634,12 @@ mod tests {
         let input = "var a = 5; { var b = 6; a = b; } a;";
         let res = interpret(input);
         assert_eq!(res, Some(Value::Int(6)));
+    }
+
+    #[test]
+    fn test_function() {
+        let input = "fn add(a, b) { a + b; }; add(5, 6);";
+        let res = interpret(input);
+        assert_eq!(res, Some(Value::Int(11)));
     }
 }

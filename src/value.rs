@@ -24,8 +24,7 @@ pub enum Value {
 
 impl Value {
     pub fn function(name: &Token, params: &[Token], body: &Stmt) -> Self {
-        let declaration = Stmt::function(name.clone(), params.to_vec(), body.clone());
-        Value::Function(Function { declaration })
+        Value::Function(Function::new(&name.lexeme, params.to_vec(), body))
     }
 }
 
@@ -78,7 +77,7 @@ impl Display for Value {
             Value::Float(n) => write!(f, "{}", n),
             Value::Int(n) => write!(f, "{}", n),
             Value::Bool(b) => write!(f, "{}", b),
-            Value::Function(func) => write!(f, "{}()", func.declaration),
+            Value::Function(func) => write!(f, "{}()", func.name),
         }
     }
 }
