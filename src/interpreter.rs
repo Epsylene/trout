@@ -19,13 +19,13 @@ impl Interpreter {
         }
     }
 
-    pub fn interpret(&mut self, program: &[Stmt]) -> Result<Option<Value>> {
+    pub fn interpret(&mut self, program: &[Stmt]) -> Result<Value> {
         // The interpreter works in a similar way to the
         // parser, except it works on the AST instead of the
         // token stream. The program is represented as a list
         // of statements, which each have to be executed in
         // order.
-        let mut res = None;
+        let mut res = Value::Nil;
         for stmt in program {
             res = self.execute(stmt)?;
         }
@@ -36,7 +36,7 @@ impl Interpreter {
         Ok(res)
     }
     
-    fn execute(&mut self, stmt: &Stmt) -> Result<Option<Value>> {
+    fn execute(&mut self, stmt: &Stmt) -> Result<Value> {
         // We need to match the type of statement to execute it
         // and optionally return a value.
         match stmt {
@@ -51,14 +51,14 @@ impl Interpreter {
         }
     }
 
-    fn expr_stmt(&mut self, expr: &Expr) -> Result<Option<Value>> {
+    fn expr_stmt(&mut self, expr: &Expr) -> Result<Value> {
         // An expression statement is just an expression that
         // is evaluated and whose value is returned.
         let value = self.evaluate(expr)?;
-        Ok(Some(value))
+        Ok(value)
     }
 
-    fn print_stmt(&mut self, expr: &Expr) -> Result<Option<Value>> {
+    fn print_stmt(&mut self, expr: &Expr) -> Result<Value> {
         // A print statement is an expression that is evaluated
         // and printed to the console.
         let value = self.evaluate(expr)?;
@@ -70,10 +70,10 @@ impl Interpreter {
         // source code won't produce code that "does" anything,
         // while the print statement will print to the standard
         // output).
-        Ok(None)
+        Ok(Value::Nil)
     }
 
-    fn var_stmt(&mut self, name: &Token, initializer: &Option<Expr>) -> Result<Option<Value>> {
+    fn var_stmt(&mut self, name: &Token, initializer: &Option<Expr>) -> Result<Value> {
         // A variable can be declared but not defined, so the
         // "initializer" expression is optional.
         match initializer {
@@ -88,10 +88,10 @@ impl Interpreter {
         
         // Declaring a variable doesn't return a value by
         // itself (although it could).
-        Ok(None)
+        Ok(Value::Nil)
     }
 
-    fn block_stmt(&mut self, statements: &[Stmt]) -> Result<Option<Value>> {
+    fn block_stmt(&mut self, statements: &[Stmt]) -> Result<Value> {
         // A block is a new scope, so we save the environment
         // and update it to this new local one.
         let enclosing = self.environment.clone();
@@ -108,7 +108,7 @@ impl Interpreter {
         Ok(res)
     }
 
-    fn if_stmt(&mut self, condition: &Expr, then_branch: &Stmt, else_branch: Option<&Stmt>) -> Result<Option<Value>> {
+    fn if_stmt(&mut self, condition: &Expr, then_branch: &Stmt, else_branch: Option<&Stmt>) -> Result<Value> {
         // First evaluate the condition.
         let condition = self.evaluate(condition)?;
         
@@ -119,11 +119,11 @@ impl Interpreter {
         } else if let Some(else_branch) = else_branch {
             self.execute(else_branch)
         } else {
-            Ok(None)
+            Ok(Value::Nil)
         }
     }
 
-    fn while_stmt(&mut self, condition: &Expr, body: &Stmt) -> Result<Option<Value>> {
+    fn while_stmt(&mut self, condition: &Expr, body: &Stmt) -> Result<Value> {
         // To implement a while loop, we just need to evaluate
         // the condition, check its truthiness, and execute the
         // body while it stays true.
@@ -131,10 +131,10 @@ impl Interpreter {
             self.execute(body)?;
         }
         
-        Ok(None)
+        Ok(Value::Nil)
     }
 
-    fn for_stmt(&mut self, loop_var: &Token, start: &Expr, stop: &Expr, step: &Option<Expr>, body: &Stmt) -> Result<Option<Value>> {
+    fn for_stmt(&mut self, loop_var: &Token, start: &Expr, stop: &Expr, step: &Option<Expr>, body: &Stmt) -> Result<Value> {
         // The for loop is just syntactic sugar for a while
         // loop with a counter variable. We want first to
         // evaluate the start and stop expressions, checking
@@ -200,10 +200,10 @@ impl Interpreter {
         // the for loop we went for, though, it was simpler to
         // implement it as its own statement.
 
-        Ok(None)
+        Ok(Value::Nil)
     }
     
-    fn function(&mut self, name: &Token, params: &[Token], body: &Stmt) -> Result<Option<Value>> {
+    fn function(&mut self, name: &Token, params: &[Token], body: &Stmt) -> Result<Value> {
         // A function is defined by its name, its parameters,
         // and its body.
         let function = Value::function(name, params, body);
@@ -215,7 +215,7 @@ impl Interpreter {
             Some(function)
         );
 
-        Ok(None)
+        Ok(Value::Nil)
     }
 
     fn evaluate(&mut self, expr: &Expr) -> Result<Value> {
@@ -563,7 +563,7 @@ mod tests {
     use crate::scanner::Scanner;
     use crate::parser::Parser;
 
-    fn interpret(input: &str) -> Option<Value> {
+    fn interpret(input: &str) -> Value {
         let mut scanner = Scanner::new(input);
         let tokens = scanner.scan().unwrap();
         let mut parser = Parser::new(tokens);
@@ -577,69 +577,69 @@ mod tests {
     fn test_declaration() {
         let input = "var a = 5; a;";
         let res = interpret(input);
-        assert_eq!(res, Some(Value::Int(5)));
+        assert_eq!(res, Value::Int(5));
     }
 
     #[test]
     fn test_assignment() {
         let input = "var a = 5; a = 6; a;";
         let res = interpret(input);
-        assert_eq!(res, Some(Value::Int(6)));
+        assert_eq!(res, Value::Int(6));
     }
 
     #[test]
     fn test_print() {
         let input = "print 5;";
         let res = interpret(input);
-        assert_eq!(res, None);
+        assert_eq!(res, Value::Nil);
     }
 
     #[test]
     fn test_expression() {
         let input = "5 + 6;";
         let res = interpret(input);
-        assert_eq!(res, Some(Value::Int(11)));
+        assert_eq!(res, Value::Int(11));
     }
 
     #[test]
     fn test_grouping() {
         let input = "(5 + 6) * 2;";
         let res = interpret(input);
-        assert_eq!(res, Some(Value::Int(22)));
+        assert_eq!(res, Value::Int(22));
     }
 
     #[test]
     fn test_if() {
         let input = "var a = 5; if a < 6 { a = 6; } a;";
         let res = interpret(input);
-        assert_eq!(res, Some(Value::Int(6)));
+        assert_eq!(res, Value::Int(6));
     }
 
     #[test]
     fn test_while() {
         let input = "var a = 5; while a < 6 { a = a + 1; } a;";
         let res = interpret(input);
-        assert_eq!(res, Some(Value::Int(6)));
+        assert_eq!(res, Value::Int(6));
     }
 
     #[test]
     fn test_for() {
         let input = "var a = 0; for i=0..5 { a = i; } a;";
         let res = interpret(input);
-        assert_eq!(res, Some(Value::Int(4)));
+        assert_eq!(res, Value::Int(4));
     }
 
     #[test]
     fn test_blocks() {
         let input = "var a = 5; { var b = 6; a = b; } a;";
         let res = interpret(input);
-        assert_eq!(res, Some(Value::Int(6)));
+        assert_eq!(res, Value::Int(6));
     }
 
     #[test]
     fn test_function() {
         let input = "fn add(a, b) { a + b; }; add(5, 6);";
         let res = interpret(input);
-        assert_eq!(res, Some(Value::Int(11)));
+        assert_eq!(res, Value::Int(11));
     }
 }

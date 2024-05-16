@@ -43,8 +43,8 @@ fn run_prompt() -> Result<(), AppError> {
         // We don't want to break the loop on an error, only to
         // print it.
         match run(&input, &mut interpreter) {
-            Ok(Some(value)) => println!("{}", value),
-            Ok(None) => (),
+            Ok(Value::Nil) => (),
+            Ok(value) => println!("{}", value),
             Err(e) => eprintln!("{}", e),
         }
     }
@@ -64,7 +64,7 @@ fn run_file(path: &str) -> Result<(), AppError> {
     run(&contents, &mut interpreter).map(|_| ())
 }
 
-fn run(source: &str, interpreter: &mut Interpreter) -> Result<Option<Value>, AppError> {
+fn run(source: &str, interpreter: &mut Interpreter) -> Result<Value, AppError> {
     let mut scan = Scanner::new(source);
     let tokens = scan.scan().map_err(AppError::Compiler)?;
     

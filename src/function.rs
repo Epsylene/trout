@@ -50,10 +50,6 @@ impl Callable for Function {
         let res = interpreter.interpret(slice::from_ref(&self.body));
         interpreter.environment.to_enclosing();
 
-        match res {
-            Ok(Some(value)) => Ok(value),
-            Ok(None) => Ok(Value::Nil),
-            Err(e) => Err(e),
-        }
+        res
     }
 }
