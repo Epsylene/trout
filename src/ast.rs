@@ -172,7 +172,6 @@ impl Expr {
 #[derive(Clone, PartialEq)]
 pub enum Stmt {
     Expression { expression: Expr },
-    Print { expression: Expr },
     Var { name: Token, initializer: Option<Expr> },
     Block { statements: Vec<Stmt> },
     If { condition: Expr, then_branch: Box<Stmt>, else_branch: Option<Box<Stmt>> },
@@ -184,10 +183,6 @@ pub enum Stmt {
 impl Stmt {
     pub fn expression(expression: Expr) -> Self {
         Stmt::Expression { expression }
-    }
-
-    pub fn print(expression: Expr) -> Self {
-        Stmt::Print { expression }
     }
 
     pub fn var(name: Token, initializer: Option<Expr>) -> Self {
@@ -274,7 +269,6 @@ impl Display for Stmt {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         match self {
             Stmt::Expression { expression } => write!(f, "{}", expression),
-            Stmt::Print { expression } => write!(f, "print {}", expression),
             Stmt::Var { name, initializer } => match initializer {
                     Some(expr) => write!(f, "var {} = {}", name.lexeme, expr),
                     None => write!(f, "var {}", name.lexeme)
@@ -322,7 +316,6 @@ impl Debug for Stmt {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         match self {
             Stmt::Expression { expression } => write!(f, "Stmt::Expression({:?})", expression),
-            Stmt::Print { expression } => write!(f, "Stmt::Print({:?})", expression),
             Stmt::Var { name, initializer } => write!(f, "Stmt::Variable({:?}, {:?})", name, initializer),
             Stmt::Block { statements } => write!(f, "Stmt::Block({:?})", statements),
             Stmt::If { condition, then_branch, else_branch } => write!(f, "Stmt::If({:?}, {:?}, {:?})", condition, then_branch, else_branch),

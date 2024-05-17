@@ -238,25 +238,12 @@ impl Parser {
         //  | if_stmt | while_stmt | for_stmt
 
         match self.zero().kind {
-            TokenKind::Print => self.print_stmt(),
             TokenKind::If => self.if_stmt(),
             TokenKind::LeftBrace => self.block(),
             TokenKind::While => self.while_stmt(),
             TokenKind::For => self.for_stmt(),
             _ => self.expr_stmt(),
         }
-    }
-
-    fn print_stmt(&mut self) -> Result<Stmt> {
-        // print_stmt := "print" expression
-
-        // A print statement is just the keyword "print"
-        // followed by an expression and a separator.
-        self.advance();
-        let expr = self.expression()?;
-        self.consume(&[TokenKind::Semicolon, TokenKind::Newline], ErrorKind::ExpectedSeparator)?;
-
-        Ok(Stmt::print(expr))
     }
 
     fn if_stmt(&mut self) -> Result<Stmt> {
@@ -692,21 +679,8 @@ mod test {
     }
 
     #[test]
-    fn test_print_statement() {
-        let result = parse("print 1;");
-        assert!(result.is_ok());
-        let stmts = result.unwrap();
-        assert_eq!(stmts.len(), 1);
-        assert_eq!(stmts[0],
-            Stmt::print(
-                Expr::literal(Token::new(TokenKind::Number, "1".to_string(), LiteralType::Int(1), Location::new(1, 7)))
-            )
-        );
-    }
-
-    #[test]
     fn test_block_statement() {
-        let result = parse("{ var a = 1; print a; }");
+        let result = parse("{ var a = 1; }");
         assert!(result.is_ok());
         let stmts = result.unwrap();
         assert_eq!(stmts.len(), 1);
@@ -716,16 +690,13 @@ mod test {
                     Token::new(TokenKind::Identifier, "a".to_string(), LiteralType::Nil, Location::new(1, 7)),
                     Some(Expr::literal(Token::new(TokenKind::Number, "1".to_string(), LiteralType::Int(1), Location::new(1, 11)))
                 )),
-                Stmt::print(
-                    Expr::variable(Token::new(TokenKind::Identifier, "a".to_string(), LiteralType::Nil, Location::new(1, 20)))
-                )
             ])
         );
     }
 
     #[test]
     fn test_if_statement() {
-        let result = parse("if true { print 1; } else { print 2; }");
+        let result = parse("if true { 1; } else { 2; }");
         assert!(result.is_ok());
         let stmts = result.unwrap();
         assert_eq!(stmts.len(), 1);
@@ -733,13 +704,13 @@ mod test {
             Stmt::if_stmt(
                 Expr::literal(Token::new(TokenKind::True, "true".to_string(), LiteralType::Bool(true), Location::new(1, 4))),
                 Stmt::block(vec![
-                    Stmt::print(
-                        Expr::literal(Token::new(TokenKind::Number, "1".to_string(), LiteralType::Int(1), Location::new(1, 17)))
+                    Stmt::expression(
+                        Expr::literal(Token::new(TokenKind::Number, "1".to_string(), LiteralType::Int(1), Location::new(1, 11)))
                     )
                 ]),
                 Some(Stmt::block(vec![
-                    Stmt::print(
-                        Expr::literal(Token::new(TokenKind::Number, "2".to_string(), LiteralType::Int(2), Location::new(1, 35)))
+                    Stmt::expression(
+                        Expr::literal(Token::new(TokenKind::Number, "2".to_string(), LiteralType::Int(2), Location::new(1, 23)))
                     )
                 ]))
             )
@@ -748,7 +719,7 @@ mod test {
 
     #[test]
     fn test_while_statement() {
-        let result = parse("while true { print 1; }");
+        let result = parse("while true { 1; }");
         assert!(result.is_ok());
         let stmts = result.unwrap();
         assert_eq!(stmts.len(), 1);
@@ -756,8 +727,8 @@ mod test {
             Stmt::while_stmt(
                 Expr::literal(Token::new(TokenKind::True, "true".to_string(), LiteralType::Bool(true), Location::new(1, 7))),
                 Stmt::block(vec![
-                    Stmt::print(
-                        Expr::literal(Token::new(TokenKind::Number, "1".to_string(), LiteralType::Int(1), Location::new(1, 20)))
+                    Stmt::expression(
+                        Expr::literal(Token::new(TokenKind::Number, "1".to_string(), LiteralType::Int(1), Location::new(1, 14)))
                     )
                 ])
             )
@@ -766,7 +737,7 @@ mod test {
 
     #[test]
     fn test_for_statement() {
-        let result = parse("for i = 0..10 { print i; }");
+        let result = parse("for i = 0..10 { i; }");
         assert!(result.is_ok());
         let stmts = result.unwrap();
         assert_eq!(stmts.len(), 1);
@@ -777,8 +748,8 @@ mod test {
                 Expr::literal(Token::new(TokenKind::Number, "10".to_string(), LiteralType::Int(10), Location::new(1, 12))),
                 None,
                 Stmt::block(vec![
-                    Stmt::print(
-                        Expr::variable(Token::new(TokenKind::Identifier, "i".to_string(), LiteralType::Nil, Location::new(1, 23)))
+                    Stmt::expression(
+                        Expr::variable(Token::new(TokenKind::Identifier, "i".to_string(), LiteralType::Nil, Location::new(1, 17)))
                     )
                 ])
             )

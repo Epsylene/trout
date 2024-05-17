@@ -1,12 +1,7 @@
 use std::fmt::{Display, Debug};
 
 use crate::{
-    error::Result, 
-    function::{Callable, Function}, 
-    interpreter::Interpreter, 
-    literal::LiteralType,
-    token::Token,
-    ast::Stmt,
+    ast::Stmt, error::Result, function::{Callable, Function, NativeFunction}, interpreter::Interpreter, literal::LiteralType, token::Token
 };
 
 #[derive(Clone, PartialEq)]
@@ -20,11 +15,12 @@ pub enum Value {
 
     // Functions
     Function(Function),
+    NativeFunction(NativeFunction),
 }
 
 impl Value {
     pub fn function(name: &Token, params: &[Token], body: &Stmt) -> Self {
-        Value::Function(Function::new(&name.lexeme, params.to_vec(), body))
+        Value::Function(Function::new(name.lexeme.clone(), params.to_vec(), body.clone()))
     }
 }
 
@@ -32,6 +28,7 @@ impl Callable for Value {
     fn arity(&self) -> usize {
         match self {
             Value::Function(func) => func.arity(),
+            Value::NativeFunction(func) => func.arity(),
             _ => unreachable!("Not a function"),
         }
     }
@@ -39,6 +36,7 @@ impl Callable for Value {
     fn call(&self, interpreter: &mut Interpreter, args: Vec<Value>) -> Result<Value> {
         match self {
             Value::Function(func) => func.call(interpreter, args),
+            Value::NativeFunction(func) => func.call(interpreter, args),
             _ => unreachable!("Not a function"),
         }
     }
@@ -65,6 +63,7 @@ impl Debug for Value {
             Value::Int(n) => write!(f, "{:?}", n),
             Value::Bool(b) => write!(f, "{:?}", b),
             Value::Function(func) => write!(f, "{:?}", func),
+            Value::NativeFunction(func) => write!(f, "{:?}", func),
         }
     }
 }
@@ -78,6 +77,7 @@ impl Display for Value {
             Value::Int(n) => write!(f, "{}", n),
             Value::Bool(b) => write!(f, "{}", b),
             Value::Function(func) => write!(f, "{}()", func.name),
+            Value::NativeFunction(func) => write!(f, "{}()", func.name),
         }
     }
 }

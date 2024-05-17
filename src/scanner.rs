@@ -463,7 +463,6 @@ fn get_keyword(keyword: &str) -> TokenKind {
         "while" => TokenKind::While,
         "fn" => TokenKind::Fn,
         "nil" => TokenKind::Nil,
-        "print" => TokenKind::Print,
         "return" => TokenKind::Return,
         "super" => TokenKind::Super,
         "this" => TokenKind::This,

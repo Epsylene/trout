@@ -4,7 +4,9 @@ use std::{
     fmt::Debug,
 };
 
+use lazy_static::lazy_static;
 use crate::value::Value;
+use crate::function::*;
 
 // The "environment" of the program is all the data that it has
 // created and is handling as part of its execution. All
@@ -90,4 +92,22 @@ impl Debug for Environment {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         write!(f, "{:?}", self.values)
     }
+}
+
+// The global environment is a singleton, meaning there is only
+// one instance of it in the program. This is because the
+// global environment is the root of the environment stack, and
+// all other environments are created from it. This is
+// implemented as a lazy static variable, which is initialized
+// the first time it is accessed.
+lazy_static! {
+    pub static ref GLOBAL_ENV: Environment = {
+        let mut env = Environment::global();
+        
+        // Pre-define the native functions in the environment.
+        env.define("print".to_string(), Some(PRINT.clone()));
+        env.define("clock".to_string(), Some(CLOCK.clone()));
+
+        env
+    };
 }

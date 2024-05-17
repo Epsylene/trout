@@ -2,8 +2,8 @@ use crate::value::Value;
 use crate::token::{Token, TokenKind};
 use crate::error::{Error, ErrorKind, Result};
 use crate::ast::{Expr, Stmt};
-use crate::environment::Environment;
 use crate::function::Callable;
+use crate::environment::{Environment, GLOBAL_ENV};
 
 pub struct Interpreter {
     // The interpreter needs to keep track of the environment
@@ -15,7 +15,7 @@ pub struct Interpreter {
 impl Interpreter {
     pub fn new() -> Self {
         Interpreter {
-            environment: Environment::global(),
+            environment: Environment::local(Box::new(GLOBAL_ENV.clone())),
         }
     }
 
@@ -41,7 +41,6 @@ impl Interpreter {
         // and optionally return a value.
         match stmt {
             Stmt::Expression { expression } => self.expr_stmt(expression),
-            Stmt::Print { expression } => self.print_stmt(expression),
             Stmt::Var { name, initializer } => self.var_stmt(name, initializer),
             Stmt::Block { statements } => self.block_stmt(statements),
             Stmt::If { condition, then_branch, else_branch } => self.if_stmt(condition, then_branch, else_branch.as_deref()),
@@ -56,21 +55,6 @@ impl Interpreter {
         // is evaluated and whose value is returned.
         let value = self.evaluate(expr)?;
         Ok(value)
-    }
-
-    fn print_stmt(&mut self, expr: &Expr) -> Result<Value> {
-        // A print statement is an expression that is evaluated
-        // and printed to the console.
-        let value = self.evaluate(expr)?;
-        println!("{}", value);
-
-        // The print statement itself doesn't return a value,
-        // it just prints it (it is important to make the
-        // distinction since a lone expression statement in a
-        // source code won't produce code that "does" anything,
-        // while the print statement will print to the standard
-        // output).
-        Ok(Value::Nil)
     }
 
     fn var_stmt(&mut self, name: &Token, initializer: &Option<Expr>) -> Result<Value> {
@@ -301,27 +285,29 @@ impl Interpreter {
         for arg in arguments {
             args.push(self.evaluate(arg)?);
         }
-        
-        // Finally, we can call the function. 
-        match callee {
-            Value::Function(f) => {
-                // Check that the number of arguments is
-                // correct...
-                if f.arity() != args.len() {
-                    return Err(Error::new(
-                        &close_paren.location,
-                        ErrorKind::FunctionArity(f.arity(), args.len()))
-                    );
-                }
 
-                // ...and only then actually call the function.
-                f.call(self, args)
-            }
+        // Finally, we can call the function.
+        match callee {
+            Value::Function(f) => self.make_call(f, args, close_paren),
+            Value::NativeFunction(f) => self.make_call(f, args, close_paren),
             _ => Err(Error::new(
                 &close_paren.location,
                 ErrorKind::NotCallable)
             ),
         }
+    }
+
+    fn make_call(&mut self, f: impl Callable, args: Vec<Value>, close_paren: &Token) -> Result<Value> {
+        // Check that the number of arguments is correct...
+        if f.arity() != args.len() {
+            return Err(Error::new(
+                &close_paren.location,
+                ErrorKind::FunctionArity(f.arity(), args.len()))
+            );
+        }
+
+        // ...and only then actually call the function.
+        f.call(self, args)
     }
     
     fn unary(&mut self, operator: &Token, right: &Expr) -> Result<Value> {
@@ -589,7 +575,7 @@ mod tests {
 
     #[test]
     fn test_print() {
-        let input = "print 5;";
+        let input = "print(5);";
         let res = interpret(input);
         assert_eq!(res, Value::Nil);
     }
