@@ -1,3 +1,5 @@
+use core::slice;
+
 use crate::value::Value;
 use crate::token::{Token, TokenKind};
 use crate::error::{Error, ErrorKind, Result};
@@ -35,6 +37,30 @@ impl Interpreter {
         // printed to the user.
         Ok(res)
     }
+
+    pub fn interpret_body(&mut self, body: &Stmt) -> Result<Value> {
+        // When interpreting the body of a function, execution
+        // might stop early because of a return statement. To
+        // stop the interpretation at the right moment, a
+        // special error type is thrown, which contains the
+        // return value.
+        match self.interpret(slice::from_ref(body)) {
+            // Either the body is executed normally, and the
+            // interpreter returns the last value to the
+            // enclosing scope...
+            Ok(value) => Ok(value),
+            // ...or an error is returned early:
+            Err(e) => match e.kind {
+                // - Either a "return" error, which contains
+                //   the value of a return statement, which is
+                //   returned to the enclosing scope normally;
+                ErrorKind::Return(value) => Ok(value),
+                // - Or any other error, which is passed up the
+                //   chain.
+                _ => Err(e),
+            },
+        }
+    }
     
     fn execute(&mut self, stmt: &Stmt) -> Result<Value> {
         // We need to match the type of statement to execute it
@@ -47,6 +73,7 @@ impl Interpreter {
             Stmt::While { condition, body } => self.while_stmt(condition, body),
             Stmt::For { loop_var, start, stop, step, body } => self.for_stmt(loop_var, start, stop, step, body),
             Stmt::Function { name, params, body } => self.function(name, params, body),
+            Stmt::Return { keyword, value } => self.return_stmt(keyword, value),
         }
     }
 
@@ -200,6 +227,27 @@ impl Interpreter {
         );
 
         Ok(Value::Nil)
+    }
+
+    fn return_stmt(&mut self, keyword: &Token, value: &Option<Expr>) -> Result<Value> {
+        // A return statement exits the function, returning the
+        // value of an expression. If there is no expression
+        // provided, the return value is Nil.
+        let value = match value {
+            Some(expr) => self.evaluate(expr)?,
+            None => Value::Nil,
+        };
+
+        // We return the value, but we don't want to return
+        // from the whole program, only from the function in
+        // which the return statement is found. To do this, we
+        // use a special error type that will be caught by the
+        // program, so that the execution for the current scope
+        // stops here.
+        Err(Error::new(
+            &keyword.location,
+            ErrorKind::Return(value)
+        ))
     }
 
     fn evaluate(&mut self, expr: &Expr) -> Result<Value> {

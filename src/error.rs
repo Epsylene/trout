@@ -1,5 +1,7 @@
 use std::fmt::Display;
+
 use crate::token::Location;
+use crate::value::Value;
 
 #[derive(Debug)]
 pub enum AppError {
@@ -57,7 +59,8 @@ pub enum ErrorKind {
     NotLogicalOperator(String),
     ForStartStopStepInt,
     NotCallable,
-    FunctionArity(usize, usize)
+    FunctionArity(usize, usize),
+    Return(Value),
 }
 
 impl Display for ErrorKind {
@@ -149,6 +152,9 @@ impl Display for ErrorKind {
             ErrorKind::FunctionArity(expected, got) => {
                 write!(f, "Function expected {} arguments, got {}", expected, got)
             }
+            ErrorKind::Return(value) => {
+                write!(f, "Return statement outside of function: {:?}", value)
+            }
         }
     }
 }
@@ -157,7 +163,7 @@ impl Display for ErrorKind {
 pub struct Error {
     line: u32,
     column: u32,
-    kind: ErrorKind,
+    pub kind: ErrorKind,
 }
 
 impl Error {

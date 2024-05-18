@@ -72,7 +72,8 @@ use crate::ast::{Expr, Stmt};
 //  parameters := IDENTIFIER ("," IDENTIFIER)*
 //
 //  statement := expr_stmt | print_stmt | block 
-//                  | if_stmt | while_stmt | for_stmt
+//                  | if_stmt | while_stmt 
+//                  | for_stmt | return
 //
 //  block := "{" declaration* "}"
 //  expr_stmt := expression
@@ -81,6 +82,7 @@ use crate::ast::{Expr, Stmt};
 //  while_stmt := "while" expression block
 //  for_stmt := "for" IDENTIFIER "=" expression ".."
 //              expression (".." expression)? block
+//  return := "return" expression?
 //
 //  expression := assignment
 //  assignment := IDENTIFIER "=" assignment | logical_or
@@ -242,6 +244,7 @@ impl Parser {
             TokenKind::LeftBrace => self.block(),
             TokenKind::While => self.while_stmt(),
             TokenKind::For => self.for_stmt(),
+            TokenKind::Return => self.return_stmt(),
             _ => self.expr_stmt(),
         }
     }
@@ -351,6 +354,26 @@ impl Parser {
         let body = self.block()?;
 
         Ok(Stmt::for_stmt(loop_var, start, stop, step, body))
+    }
+
+    fn return_stmt(&mut self) -> Result<Stmt> {
+        // return := "return" expression?
+
+        let keyword = self.advance(); // "return" keyword
+
+        // A return statement either returns a value from an
+        // expression or terminates the function early. If the
+        // token after the "return" keyword is not a separator,
+        // it means that there is an expression to return.
+        let value = if !self.match_next(&[TokenKind::Semicolon, TokenKind::Newline]) {
+            Some(self.expression()?)
+        } else {
+            None
+        };
+
+        self.consume(&[TokenKind::Semicolon, TokenKind::Newline], ErrorKind::ExpectedSeparator)?;
+
+        Ok(Stmt::return_stmt(keyword, value))
     }
 
     fn expr_stmt(&mut self) -> Result<Stmt> {

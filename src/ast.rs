@@ -178,6 +178,7 @@ pub enum Stmt {
     While { condition: Expr, body: Box<Stmt> },
     For { loop_var: Token, start: Expr, stop: Expr, step: Option<Expr>, body: Box<Stmt> },
     Function { name: Token, params: Vec<Token>, body: Box<Stmt> },
+    Return { keyword: Token, value: Option<Expr> },
 }
 
 impl Stmt {
@@ -224,6 +225,10 @@ impl Stmt {
             params,
             body: Box::new(body),
         }
+    }
+
+    pub fn return_stmt(keyword: Token, value: Option<Expr>) -> Self {
+        Stmt::Return { keyword, value }
     }
 }
 
@@ -308,6 +313,12 @@ impl Display for Stmt {
                 write!(f, ") ")?;
                 write!(f, "{}", body)
             }
+            Stmt::Return { keyword, value } => {
+                match value {
+                    Some(expr) => write!(f, "return {}", expr),
+                    None => write!(f, "return")
+                }
+            }
         }
     }
 }
@@ -322,6 +333,7 @@ impl Debug for Stmt {
             Stmt::While { condition, body } => write!(f, "Stmt::While({:?}, {:?})", condition, body),
             Stmt::For { loop_var, start, stop, step, body } => write!(f, "Stmt::For({:?}, {:?}, {:?}, {:?}, {:?})", loop_var, start, stop, step, body),
             Stmt::Function { name, params, body } => write!(f, "Stmt::Function({:?}, {:?}, {:?})", name, params, body),
+            Stmt::Return { keyword, value } => write!(f, "Stmt::Return({:?})", value),
         }
     }
 }

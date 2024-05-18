@@ -1,4 +1,3 @@
-use std::slice;
 use core::iter::zip;
 use lazy_static::lazy_static;
 
@@ -73,7 +72,7 @@ impl Callable for Function {
         // environment, which is then restored to the enclosing
         // scope.
         interpreter.environment = env;
-        let res = interpreter.interpret(slice::from_ref(&self.body));
+        let res = interpreter.interpret_body(&self.body);
         interpreter.environment.to_enclosing();
 
         // The result of the function call is the result of
