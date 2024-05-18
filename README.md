@@ -19,8 +19,10 @@ The language is a simple dynamically-typed language with the following sintax:
 - Arithmetic operators: `+`, `-`, `*`, `/`
 - Comparison operators: `>`, `<`, `>=`, `<=`, `==`, `!=`
 - Logical operators: `and`, `or`
-- Variables: `var a;`, `var x = 10;`
-- Print statement: `print 10;`
+- Conditionals: `if condition { ... } else { ... }`
+- Loops: `while condition { ... }`, `for i=a..b { ... }`
+- Functions: `fn add(a, b) { ... }`
+- Variables: `var a;`, `x = 10;`
 
 ### Binary operators
 1. Arithmetic operators are binary infix operators with the usual precedence rules. Ints are casted to floats if the other operand is a float, except for the division `/`, where both a operands are casted to floats. The `+` operator is overloaded to concatenate strings.
@@ -39,3 +41,7 @@ Variables can be assigned and re-assigned to any value. Variables can be declare
 1. Conditionals are implemented with the `if` statement in the form `if condition { ... } else { ... }`. The `else` block is optional and can be omitted.
 2. `while` loops are implemented with the sintax `while condition { ... }`. The condition is evaluated before each iteration.
 3. `for` loops are implemented with the sintax `for i=a..b..s { ... }`. The loop variable `i` is initialized with value `a` and incremented by `s` at the end of each iteration; the loop runs while `i < b`. The increment `s` is optional and defaults to 1.
+
+### Functions
+
+Functions are defined with the sintax `fn name(a, b, ...) { ... }`.  Functions can be defined inside other functions. The arguments and return value of a function can be of any type, including other functions, which are passed around using their identifier.

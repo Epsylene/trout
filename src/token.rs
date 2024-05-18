@@ -18,7 +18,7 @@ pub enum TokenKind {
 
     // Keywords
     Class, Else, False, Fn, For, If, Nil,
-    Print, Return, Super, This, True, Var, While,
+    Return, Super, This, True, Var, While,
 
     // Comments
     LineComment, BlockComment,

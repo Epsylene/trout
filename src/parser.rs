@@ -1,4 +1,4 @@
-use crate::token::{Token, TokenKind, TokenMatch, self};
+use crate::token::{Token, TokenKind, TokenMatch};
 use crate::error::{Error, ErrorKind, Result};
 use crate::ast::{Expr, Stmt};
 
