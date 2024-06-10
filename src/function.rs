@@ -169,26 +169,40 @@ impl Callable for NativeFunction {
 
 // Predefined native functions
 lazy_static! {
-    // print(x) - Print a value
-    pub static ref PRINT: Value = Value::NativeFunction(
-        NativeFunction {
-            name: "print".to_string(),
-            arity: 1,
-            function: |args: Vec<Value>| {
-                println!("{}", args[0]);
-                Ok(Value::Nil)
+    pub static ref NATIVE_FUNCTIONS: Vec<Value> = [
+        // print(x) - Print a value
+        Value::NativeFunction(
+            NativeFunction {
+                name: "print".to_string(),
+                arity: 1,
+                function: |args: Vec<Value>| {
+                    let args_str: Vec<String> = args.iter().map(|arg| arg.to_string()).collect();
+                    println!("{}", args_str.join(" "));
+                    Ok(Value::Nil)
             },
-        });
+        }),
 
-    // clock() - Get the current time in seconds
-    pub static ref CLOCK: Value = Value::NativeFunction(
-        NativeFunction {
-            name: "clock".to_string(),
-            arity: 0,
-            function: |_: Vec<Value>| {
-                let now = std::time::SystemTime::now();
-                let duration = now.duration_since(std::time::UNIX_EPOCH).unwrap();
-                Ok(Value::Float(duration.as_secs_f64() as f32))
+        // dbg(x) - Debug print a value
+        Value::NativeFunction(
+            NativeFunction {
+                name: "dbg".to_string(),
+                arity: 1,
+                function: |args: Vec<Value>| {
+                    args.iter().for_each(|arg| println!("{:?}", arg));
+                    Ok(Value::Nil)
             },
-        });
+        }),
+
+        // clock() - Get the current time in seconds
+        Value::NativeFunction(
+            NativeFunction {
+                name: "clock".to_string(),
+                arity: 0,
+                function: |_: Vec<Value>| {
+                    let now = std::time::SystemTime::now();
+                    let duration = now.duration_since(std::time::UNIX_EPOCH).unwrap();
+                    Ok(Value::Float(duration.as_secs_f64() as f32))
+            },
+        }),
+    ].to_vec();
 }

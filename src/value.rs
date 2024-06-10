@@ -68,11 +68,11 @@ impl From<LiteralType> for Value {
 impl Debug for Value {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         match self {
-            Value::Nil => write!(f, "()"),
-            Value::String(s) => write!(f, "{:?}", s),
-            Value::Float(n) => write!(f, "{:?}", n),
-            Value::Int(n) => write!(f, "{:?}", n),
-            Value::Bool(b) => write!(f, "{:?}", b),
+            Value::Nil => write!(f, "Nil()"),
+            Value::String(s) => write!(f, "String({:?})", s),
+            Value::Float(n) => write!(f, "Float({:?})", n),
+            Value::Int(n) => write!(f, "Int({:?})", n),
+            Value::Bool(b) => write!(f, "Bool({:?})", b),
             Value::Function(func) => write!(f, "{:?}", func),
             Value::Lambda(lambda) => write!(f, "{:?}", lambda),
             Value::NativeFunction(func) => write!(f, "{:?}", func),

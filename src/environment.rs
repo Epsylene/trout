@@ -111,8 +111,11 @@ lazy_static! {
         let mut env = Environment::global();
         
         // Pre-define the native functions in the environment.
-        env.define("print".to_string(), Some(PRINT.clone()));
-        env.define("clock".to_string(), Some(CLOCK.clone()));
+        for func in NATIVE_FUNCTIONS.iter() {
+            if let Value::NativeFunction(native) = func {
+                env.define(native.name.clone(), Some(func.clone()));
+            }
+        }
 
         env
     };
