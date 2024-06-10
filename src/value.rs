@@ -1,7 +1,13 @@
 use std::fmt::{Display, Debug};
 
 use crate::{
-    ast::Stmt, error::Result, function::{Callable, Function, NativeFunction}, interpreter::Interpreter, literal::LiteralType, token::Token
+    ast::Stmt, 
+    error::Result, 
+    function::{Callable, Function, Lambda, NativeFunction}, 
+    environment::Environment,
+    interpreter::Interpreter, 
+    literal::LiteralType, 
+    token::Token
 };
 
 #[derive(Clone, PartialEq)]
@@ -15,12 +21,17 @@ pub enum Value {
 
     // Functions
     Function(Function),
+    Lambda(Lambda),
     NativeFunction(NativeFunction),
 }
 
 impl Value {
     pub fn function(name: &Token, params: &[Token], body: &Stmt) -> Self {
         Value::Function(Function::new(name.lexeme.clone(), params.to_vec(), body.clone()))
+    }
+
+    pub fn lambda(params: &[Token], body: &Stmt, closure: Environment) -> Self {
+        Value::Lambda(Lambda::new(params.to_vec(), body.clone(), closure))
     }
 }
 
@@ -63,6 +74,7 @@ impl Debug for Value {
             Value::Int(n) => write!(f, "{:?}", n),
             Value::Bool(b) => write!(f, "{:?}", b),
             Value::Function(func) => write!(f, "{:?}", func),
+            Value::Lambda(lambda) => write!(f, "{:?}", lambda),
             Value::NativeFunction(func) => write!(f, "{:?}", func),
         }
     }
@@ -77,6 +89,7 @@ impl Display for Value {
             Value::Int(n) => write!(f, "{}", n),
             Value::Bool(b) => write!(f, "{}", b),
             Value::Function(func) => write!(f, "{}()", func.name),
+            Value::Lambda(lambda) => write!(f, "fn({})", lambda.params.join(", ")),
             Value::NativeFunction(func) => write!(f, "{}()", func.name),
         }
     }

@@ -81,6 +81,60 @@ impl Callable for Function {
     }
 }
 
+// Lambdas, or anonymous functions, are pure function objects
+// without a name. Their purpose is to be passed around as
+// arguments to a function or bound to a variable, which may
+// then be called. In many languages, lambdas are also closures
+// -- that is, functions that capture their environment at the
+// time of their creation, and can access variables from that
+// scope even after the scope has exited. This is useful for
+// callbacks, event handlers, and other situations where a
+// function needs to remember some state.
+#[derive(Clone, PartialEq, Debug)]
+pub struct Lambda {
+    pub body: Stmt,
+    pub params: Vec<String>,
+    pub closure: Box<Environment>,
+}
+
+impl Lambda {
+    pub fn new(params: Vec<Token>, body: Stmt, closure: Environment) -> Self {
+        Lambda {
+            body,
+            params: params.iter().map(|t| t.lexeme.clone()).collect(),
+            closure: Box::new(closure),
+        }
+    }
+}
+
+impl Callable for Lambda {
+    fn arity(&self) -> usize {
+        self.params.len()
+    }
+
+    fn call(&self, interpreter: &mut Interpreter, args: Vec<Value>) -> Result<Value> {
+        // The enclosing environment of a closure is not the
+        // one it is called in, but the one it was defined in.
+        // Note that this means that a closure cannot access
+        // variables in the calling scope: local functions are
+        // used for that.
+        let mut env = Environment::local(self.closure.clone());
+        
+        // Then it is business as usual: the arguments are
+        // passed to the function, the body is interpreted, and
+        // the environment is restored.
+        for (param, arg) in zip(&self.params, args) {
+            env.define(param.clone(), Some(arg));
+        }
+
+        interpreter.environment = env.clone();
+        let res = interpreter.interpret_body(&self.body);
+        interpreter.environment.to_env(env);
+
+        res
+    }
+}
+
 // A native function (also "primitive", "external" or "foreign"
 // function) is a function that is not defined with user code,
 // but is implemented using the language that hosts the

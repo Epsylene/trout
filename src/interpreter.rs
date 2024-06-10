@@ -250,6 +250,19 @@ impl Interpreter {
         ))
     }
 
+    fn lambda(&mut self, params: &[Token], body: &Stmt) -> Result<Value> {
+        // A lambda is a function without a name, so it is
+        // defined by its parameters and its body. It also has
+        // a closure, which is the environment in which it was
+        // defined.
+        let lambda = Value::lambda(params, body, self.environment.clone());
+
+        // We don't store the lambda in the environment,
+        // because by itself it is only an object value, which
+        // is passed around and stored.
+        Ok(lambda)
+    }
+
     fn evaluate(&mut self, expr: &Expr) -> Result<Value> {
         // However complicated, an expression is just the
         // composition of 4 different types of subexpressions:
@@ -275,6 +288,7 @@ impl Interpreter {
             Expr::Variable { name } => self.variable(name),
             Expr::Assign { lhs, rhs } => self.assign(lhs, rhs),
             Expr::Call { callee, arguments, close_paren } => self.call(callee, arguments, close_paren),
+            Expr::Lambda { params, body } => self.lambda(params, body),
         }
     }
     
@@ -337,6 +351,7 @@ impl Interpreter {
         // Finally, we can call the function.
         match callee {
             Value::Function(f) => self.make_call(f, args, close_paren),
+            Value::Lambda(f) => self.make_call(f, args, close_paren),
             Value::NativeFunction(f) => self.make_call(f, args, close_paren),
             _ => Err(Error::new(
                 &close_paren.location,

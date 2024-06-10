@@ -23,6 +23,7 @@ The language is a simple dynamically-typed language with the following sintax:
 - Loops: `while condition { ... }`, `for i=a..b { ... }`
 - Functions: `fn add(a, b) { ... }`
 - Variables: `var a;`, `x = 10;`
+- Comments: `// single line comment`
 
 ### Binary operators
 1. Arithmetic operators are binary infix operators with the usual precedence rules. Ints are casted to floats if the other operand is a float, except for the division `/`, where both a operands are casted to floats. The `+` operator is overloaded to concatenate strings.
@@ -42,6 +43,23 @@ Variables can be assigned and re-assigned to any value. Variables can be declare
 2. `while` loops are implemented with the sintax `while condition { ... }`. The condition is evaluated before each iteration.
 3. `for` loops are implemented with the sintax `for i=a..b..s { ... }`. The loop variable `i` is initialized with value `a` and incremented by `s` at the end of each iteration; the loop runs while `i < b`. The increment `s` is optional and defaults to 1.
 
-### Functions
+### Functions and lambdas
 
 Functions are defined with the sintax `fn name(a, b, ...) { ... }`.  Functions can be defined inside other functions. The arguments and return value of a function can be of any type, including other functions, which are passed around using their identifier.
+
+Lambdas are similar to functions, but they are anonymous and they capture the environment they are created in. They are defined with the sintax `fn (...) { ... }`.
+
+Lambdas carry the environment they were created in with them, so they can access variables from that scope even after its end. To the contrary, functions are stateless, but they can access the environment they are called in; for example, this sintax is valid:
+
+```trout
+fn print_a() {
+  print(a);
+}
+
+fn other() {
+  var a = 10;
+  print_a();
+}
+
+other(); // prints 10
+```

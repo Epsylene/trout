@@ -89,6 +89,7 @@ pub enum Expr {
     Variable { name: Token },
     Assign { lhs: Token, rhs: Box<Expr> },
     Call { callee: Box<Expr>, arguments: Vec<Expr>, close_paren: Token},
+    Lambda { params: Vec<Token>, body: Box<Stmt> },
 }
 
 impl Expr {
@@ -141,6 +142,13 @@ impl Expr {
             callee: Box::new(callee),
             arguments,
             close_paren: paren,
+        }
+    }
+
+    pub fn lambda(params: Vec<Token>, body: Stmt) -> Self {
+        Expr::Lambda {
+            params,
+            body: Box::new(body),
         }
     }
 }
@@ -249,6 +257,14 @@ impl Display for Expr {
                 }
                 write!(f, ")")
             }
+            Expr::Lambda { params, body } => {
+                write!(f, "fn (")?;
+                for param in params {
+                    write!(f, "{}, ", param.lexeme)?;
+                }
+                write!(f, ") ")?;
+                write!(f, "{}", body)
+            }
         }
     }
 }
@@ -266,6 +282,7 @@ impl Debug for Expr {
             Expr::Call { callee, arguments, close_paren: _ } => {
                 write!(f, "Expr::Call({:?}, {:?})", callee, arguments)
             }
+            Expr::Lambda { params, body } => write!(f, "Expr::Lambda({:?}, {:?})", params, body),
         }
     }
 }
@@ -313,7 +330,7 @@ impl Display for Stmt {
                 write!(f, ") ")?;
                 write!(f, "{}", body)
             }
-            Stmt::Return { keyword, value } => {
+            Stmt::Return { keyword: _, value } => {
                 match value {
                     Some(expr) => write!(f, "return {}", expr),
                     None => write!(f, "return")
@@ -333,7 +350,7 @@ impl Debug for Stmt {
             Stmt::While { condition, body } => write!(f, "Stmt::While({:?}, {:?})", condition, body),
             Stmt::For { loop_var, start, stop, step, body } => write!(f, "Stmt::For({:?}, {:?}, {:?}, {:?}, {:?})", loop_var, start, stop, step, body),
             Stmt::Function { name, params, body } => write!(f, "Stmt::Function({:?}, {:?}, {:?})", name, params, body),
-            Stmt::Return { keyword, value } => write!(f, "Stmt::Return({:?})", value),
+            Stmt::Return { keyword: _, value } => write!(f, "Stmt::Return({:?})", value),
         }
     }
 }

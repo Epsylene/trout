@@ -94,9 +94,10 @@ use crate::ast::{Expr, Stmt};
 //  factor     := unary ( ( "/" | "*" ) unary )*
 //  unary      := ( "!" | "-" ) unary | call
 //  call       := primary ( "(" arguments? ")" )*
-//  primary    := NUMBER | STRING | "true" | "false" | "nil" 
-//                  | "(" expression ")" | IDENTIFIER
 //  arguments  := expression ( "," expression )*
+//  primary    := value | "(" expression ")" | IDENTIFIER
+//  value      := NUMBER | STRING | "true" | "false" | "nil" | lambda
+//  lambda     := "fn" "(" parameters? ")" block
 pub struct Parser {
     tokens: Vec<Token>,
     current: usize,
@@ -133,6 +134,14 @@ impl Parser {
 
     fn zero(&self) -> Token {
         self.tokens[self.current].clone()
+    }
+
+    fn first_kind(&self) -> TokenKind {
+        if self.current + 1 < self.tokens.len() {
+            self.tokens[self.current + 1].kind
+        } else {
+            TokenKind::Eof
+        }
     }
 
     fn previous(&self) -> Token {
@@ -208,7 +217,7 @@ impl Parser {
 
         // After the parameters, comes the body of the
         // function, which is just a block of statements.
-        self.consume(TokenKind::RightParen, ErrorKind::ExpectedRightParenFn)?;
+        self.consume(TokenKind::RightParen, ErrorKind::ExpectedRightParenArgList)?;
         let body = self.block()?;
 
         Ok(Stmt::function(name, parameters, body))
@@ -615,7 +624,7 @@ impl Parser {
         }
 
         // Consume the right paren.
-        let paren = self.consume(TokenKind::RightParen, ErrorKind::ExpectedRightParenFn)?;
+        let paren = self.consume(TokenKind::RightParen, ErrorKind::ExpectedRightParenArgList)?;
 
         // The result is a call expression with a single
         // argument list, in the form f(...), which can then be
@@ -624,36 +633,46 @@ impl Parser {
     }
 
     fn primary(&mut self) -> Result<Expr> {
-        // primary := NUMBER | STRING | "true" | "false" | "nil" | "(" expression ")"
+        // primary := value | "(" expression ")"
         
-        // And finally, a primary expression is either a
-        // number, a string, true, false, nil or the grouping
-        // of an expression (making it all come full circle!)
-        if self.match_next(&[TokenKind::Number, TokenKind::String, TokenKind::True, TokenKind::False, TokenKind::Nil]) {
+        // And finally, a primary expression is either a value
+        // or the grouping of an expression (making it all come
+        // full circle!)
+        match self.zero().kind {
             // If it is a literal, consume it right away
-            Ok(Expr::literal(self.advance()))
-        } else if self.match_next(TokenKind::LeftParen) {
+            TokenKind::Number | TokenKind::String | TokenKind::True | TokenKind::False | TokenKind::Nil => {
+                Ok(Expr::literal(self.advance()))
+            },
             // If the matched token is a left paren, the
             // expression is a grouping. We first have to
             // consume the left paren, take the expression...
-            self.advance();
-            let expr = self.expression()?;
-            // ...then consume the right paren (while checking
-            // that it is really there!)
-            self.consume(TokenKind::RightParen, ErrorKind::ExpectedRightParenGrouping)?;
-
-            Ok(Expr::grouping(expr))
-        } else if self.match_next(TokenKind::Identifier) {
+            TokenKind::LeftParen => {
+                self.advance();
+                let expr = self.expression()?;
+                // ...then consume the right paren (while checking
+                // that it is really there!)
+                self.consume(TokenKind::RightParen, ErrorKind::ExpectedRightParenGrouping)?;
+                
+                Ok(Expr::grouping(expr))
+            },
             // If it is an identifier, it is a variable
             // expression.
-            Ok(Expr::variable(self.advance()))
-        } else {
+            TokenKind::Identifier => Ok(Expr::variable(self.advance())),
+            // If it is a function keyword, it is (supposed to
+            // be) a lambda expression.
+            TokenKind::Fn => match self.first_kind() {
+                TokenKind::LeftParen => self.lambda(),
+                _ => Err(Error::new(
+                    &self.zero().location,
+                    ErrorKind::ExpectedFnOrLambda
+                )),
+            },
             // If it is none of the above, there is something
             // wrong going on.
-            Err(Error::new(
+            _ => Err(Error::new(
                 &self.zero().location, 
                 ErrorKind::IncorrectPrimary(self.zero().lexeme))
-            )
+            ),
         }
 
         // The recursive descent ends here (or begins again at
@@ -664,6 +683,31 @@ impl Parser {
         // "predictive parsers". This is the simplest form of
         // parser (limited to LL(k) grammars), and it runs in
         // linear time, which is why it's widely used.
+    }
+
+    fn lambda(&mut self) -> Result<Expr> {
+        // lambda := "fn" "(" parameters? ")" block
+        self.advance(); // Consume the "fn" keyword
+        self.advance(); // Consume the left paren
+
+        // A lambda is like a function, but without a name. It
+        // has a list of parameters...
+        let mut parameters = Vec::new();
+        while !self.match_next(TokenKind::RightParen) {
+            parameters.push(self.consume(TokenKind::Identifier, ErrorKind::ExpectedIdentifierArg)?);
+
+            if !self.match_next(TokenKind::Comma) {
+                break;
+            }
+
+            self.advance();
+        }
+
+        // ...and a body of statements.
+        self.consume(TokenKind::RightParen, ErrorKind::ExpectedRightParenArgList)?;
+        let body = self.block()?;
+
+        Ok(Expr::lambda(parameters, body))
     }
 }
 

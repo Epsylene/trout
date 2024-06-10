@@ -47,7 +47,8 @@ pub enum ErrorKind {
     ExpectedIdentifierFn,
     ExpectedLeftParenFn,
     ExpectedIdentifierArg,
-    ExpectedRightParenFn,
+    ExpectedRightParenArgList,
+    ExpectedFnOrLambda,
 
     // Interpreter
     NotUnaryOperator(String),
@@ -117,8 +118,11 @@ impl Display for ErrorKind {
             ErrorKind::ExpectedIdentifierArg => {
                 write!(f, "Expected identifier in argument list")
             }
-            ErrorKind::ExpectedRightParenFn => {
+            ErrorKind::ExpectedRightParenArgList => {
                 write!(f, "Expected ')' to close argument list")
+            }
+            ErrorKind::ExpectedFnOrLambda => {
+                write!(f, "Expected identifier or list of arguments after 'fn'")
             }
 
             // Interpreter

@@ -18,7 +18,7 @@ use crate::function::*;
 //    variables in the environment;
 //  - A reference to the parent environment, representing the
 //    enclosing scope.
-#[derive(Clone)]
+#[derive(Clone, PartialEq)]
 pub struct Environment {
     values: HashMap<String, Option<Value>>,
     enclosing: Option<Box<Environment>>,
@@ -85,6 +85,12 @@ impl Environment {
             self.values = enclosing.values;
             self.enclosing = enclosing.enclosing;
         }
+    }
+
+    pub fn to_env(&mut self, env: Environment) {
+        // Changing the current environment to the given one.
+        self.values = env.values;
+        self.enclosing = env.enclosing;
     }
 }
 
