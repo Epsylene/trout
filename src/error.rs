@@ -50,6 +50,9 @@ pub enum ErrorKind {
     ExpectedRightParenArgList,
     ExpectedFnOrLambda,
 
+    // Resolver
+    VariableNotDefined(String),
+
     // Interpreter
     NotUnaryOperator(String),
     NotBinaryOperator(String),
@@ -125,6 +128,11 @@ impl Display for ErrorKind {
                 write!(f, "Expected identifier or list of arguments after 'fn'")
             }
 
+            // Resolver
+            ErrorKind::VariableNotDefined(name) => {
+                write!(f, "Variable '{}' has not been defined yet", name)
+            }
+
             // Interpreter
             ErrorKind::NotUnaryOperator(token) => {
                 write!(f, "Token '{}' is not a unary operator", token)
@@ -183,6 +191,12 @@ impl Error {
 impl From<Error> for Vec<Error> {
     fn from(error: Error) -> Self {
         vec![error]
+    }
+}
+
+impl<T> From<Error> for Result<T, Error> {
+    fn from(error: Error) -> Self {
+        Err(error)
     }
 }
 

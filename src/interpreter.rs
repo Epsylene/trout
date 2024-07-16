@@ -244,10 +244,10 @@ impl Interpreter {
         // use a special error type that will be caught by the
         // program, so that the execution for the current scope
         // stops here.
-        Err(Error::new(
+        Error::new(
             &keyword.location,
             ErrorKind::Return(value)
-        ))
+        ).into()
     }
 
     fn lambda(&mut self, params: &[Token], body: &Stmt) -> Result<Value> {
