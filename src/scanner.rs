@@ -466,7 +466,7 @@ fn get_keyword(keyword: &str) -> TokenKind {
         "return" => TokenKind::Return,
         "super" => TokenKind::Super,
         "this" => TokenKind::This,
-        "var" => TokenKind::Var,
+        "let" => TokenKind::Let,
         _ => TokenKind::Identifier,
     }
 }
@@ -482,7 +482,7 @@ mod tests {
         let tokens = scanner.scan().unwrap();
 
         let expected = vec![
-            Token::new(TokenKind::Var, "var".to_string(), LiteralType::Nil, Location::new(1,1)),
+            Token::new(TokenKind::Let, "var".to_string(), LiteralType::Nil, Location::new(1,1)),
             Token::new(TokenKind::Identifier, "a".to_string(), LiteralType::Nil, Location::new(1,5)),
             Token::new(TokenKind::Equal, "=".to_string(), LiteralType::Nil, Location::new(1,7)),
             Token::new(TokenKind::Number, "0".to_string(), LiteralType::Int(0), Location::new(1,9)),
@@ -530,7 +530,7 @@ mod tests {
         let tokens = scanner.scan().unwrap();
 
         let expected = vec![
-            Token::new(TokenKind::Var, "var".to_string(), LiteralType::Nil, Location::new(1,1)),
+            Token::new(TokenKind::Let, "var".to_string(), LiteralType::Nil, Location::new(1,1)),
             Token::new(TokenKind::Identifier, "a".to_string(), LiteralType::Nil, Location::new(1,5)),
             Token::new(TokenKind::Equal, "=".to_string(), LiteralType::Nil, Location::new(1,7)),
             Token::new(TokenKind::Number, "0".to_string(), LiteralType::Int(0), Location::new(1,9)),

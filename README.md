@@ -13,7 +13,7 @@ Nystrom, implemented in Rust. The program consists of three main parts:
 
 ## Sintax
 
-The language is a simple dynamically-typed language with the following sintax:
+The language is a simple dynamically-typed language with the following syntax:
 
 - Literals: integers `123`, floats `123.45`, strings `"hello"`, booleans `true`, `false`, void value `nil`
 - Arithmetic operators: `+`, `-`, `*`, `/`
@@ -22,7 +22,7 @@ The language is a simple dynamically-typed language with the following sintax:
 - Conditionals: `if condition { ... } else { ... }`
 - Loops: `while condition { ... }`, `for i=a..b { ... }`
 - Functions: `fn add(a, b) { ... }`
-- Variables: `var a;`, `x = 10;`
+- Variables: `let a;`, `x = 10;`
 - Comments: `// single line comment`
 
 ### Binary operators
@@ -35,7 +35,7 @@ The language is a simple dynamically-typed language with the following sintax:
 4. All binary operators are left-associative and can be chained (`a < b < c`). Logical operators take precedence over comparison operators, which take precedence over arithmetic operators.
 
 ### Variables and assignment
-Variables can be assigned and re-assigned to any value. Variables can be declared without an initial value, but they must be assigned before being used. Assignements are expressions that return the assigned value, so they can be used in other statements or expressions like `a = b = 5;` or `var x = (y = 10);`.
+Variables can be assigned and re-assigned to any value. Variables can be declared without an initial value, but they must be assigned before being used. Assignements are expressions that return the assigned value, so they can be used in other statements or expressions like `a = b = 5;` or `let x = (y = 10);`.
 
 ### Conditionals and loops
 
@@ -57,7 +57,7 @@ fn print_a() {
 }
 
 fn other() {
-  var a = 10;
+  let a = 10;
   print_a();
 }
 

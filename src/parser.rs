@@ -67,7 +67,7 @@ use crate::ast::{Expr, Stmt};
 //  program := (declaration | statement)* EOF
 //
 //  declaration := var_decl | fn_decl
-//  var_decl := "var" IDENTIFIER ("=" expression)?
+//  var_decl := "let" IDENTIFIER ("=" expression)?
 //  fn_decl := "fn" IDENTIFIER "(" parameters? ")" block
 //  parameters := IDENTIFIER ("," IDENTIFIER)*
 //
@@ -182,7 +182,7 @@ impl Parser {
                 None
             },
             // - A variable declaration;
-            TokenKind::Var => Some(self.declaration()),
+            TokenKind::Let => Some(self.declaration()),
             // - A function declaration;
             TokenKind::Fn => Some(self.function()),
             // - A regular statement.
@@ -224,11 +224,11 @@ impl Parser {
     }
 
     fn declaration(&mut self) -> Result<Stmt> {
-        // var_decl := "var" IDENTIFIER ("=" expression)?
+        // var_decl := "let" IDENTIFIER ("=" expression)?
 
         // A variable declaration is comprised of an
-        // identifier, following the "var" keyword...
-        self.advance(); // Consume the "var" keyword
+        // identifier, following the "let" keyword...
+        self.advance(); // Consume the "let" keyword
         let name = self.consume(TokenKind::Identifier, ErrorKind::ExpectedIdentifierAssignment)?;
         
         // ...and optionally an initializer expression.
@@ -734,7 +734,7 @@ mod test {
 
     #[test]
     fn test_var_declaration() {
-        let result = parse("var a = 1;");
+        let result = parse("let a = 1;");
         assert!(result.is_ok());
         let stmts = result.unwrap();
         assert_eq!(stmts.len(), 1);
@@ -747,7 +747,7 @@ mod test {
 
     #[test]
     fn test_block_statement() {
-        let result = parse("{ var a = 1; }");
+        let result = parse("{ let a = 1; }");
         assert!(result.is_ok());
         let stmts = result.unwrap();
         assert_eq!(stmts.len(), 1);

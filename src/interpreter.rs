@@ -195,7 +195,7 @@ impl Interpreter {
         //
         // is equivalent to the following code:
         //
-        //      var i = a;
+        //      let i = a;
         //      while i < b {
         //          // statements
         //          i = i + s;
@@ -624,14 +624,14 @@ mod tests {
 
     #[test]
     fn test_declaration() {
-        let input = "var a = 5; a;";
+        let input = "let a = 5; a;";
         let res = interpret(input);
         assert_eq!(res, Value::Int(5));
     }
 
     #[test]
     fn test_assignment() {
-        let input = "var a = 5; a = 6; a;";
+        let input = "let a = 5; a = 6; a;";
         let res = interpret(input);
         assert_eq!(res, Value::Int(6));
     }
@@ -659,28 +659,28 @@ mod tests {
 
     #[test]
     fn test_if() {
-        let input = "var a = 5; if a < 6 { a = 6; } a;";
+        let input = "let a = 5; if a < 6 { a = 6; } a;";
         let res = interpret(input);
         assert_eq!(res, Value::Int(6));
     }
 
     #[test]
     fn test_while() {
-        let input = "var a = 5; while a < 6 { a = a + 1; } a;";
+        let input = "let a = 5; while a < 6 { a = a + 1; } a;";
         let res = interpret(input);
         assert_eq!(res, Value::Int(6));
     }
 
     #[test]
     fn test_for() {
-        let input = "var a = 0; for i=0..5 { a = i; } a;";
+        let input = "let a = 0; for i=0..5 { a = i; } a;";
         let res = interpret(input);
         assert_eq!(res, Value::Int(4));
     }
 
     #[test]
     fn test_blocks() {
-        let input = "var a = 5; { var b = 6; a = b; } a;";
+        let input = "let a = 5; { let b = 6; a = b; } a;";
         let res = interpret(input);
         assert_eq!(res, Value::Int(6));
     }

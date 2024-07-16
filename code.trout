@@ -1,5 +1,5 @@
 fn enclosing() {
-    var a = "From enclosing";
+    let a = "From enclosing";
     return fn () { print(a); }
 }
 
