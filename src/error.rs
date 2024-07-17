@@ -51,15 +51,14 @@ pub enum ErrorKind {
     ExpectedFnOrLambda,
 
     // Resolver
-    VariableNotDefined(String),
+    VariableNotDeclared(String),
+    UndefinedVariable(String),
 
     // Interpreter
     NotUnaryOperator(String),
     NotBinaryOperator(String),
     NotIntOrFloat,
     NotAddOrConcat,
-    VariableNotDeclared(String),
-    UndefinedVariable(String),
     NotLogicalOperator(String),
     ForStartStopStepInt,
     NotCallable,
@@ -129,8 +128,11 @@ impl Display for ErrorKind {
             }
 
             // Resolver
-            ErrorKind::VariableNotDefined(name) => {
-                write!(f, "Variable '{}' has not been defined yet", name)
+            ErrorKind::VariableNotDeclared(name) => {
+                write!(f, "Variable '{}' has not been declared", name)
+            }
+            ErrorKind::UndefinedVariable(name) => {
+                write!(f, "Variable '{}' has been declared but not initialized", name)
             }
 
             // Interpreter
@@ -145,12 +147,6 @@ impl Display for ErrorKind {
             }
             ErrorKind::NotAddOrConcat => {
                 write!(f, "Operands must be two numbers (int or float) or two strings")
-            }
-            ErrorKind::VariableNotDeclared(name) => {
-                write!(f, "Variable '{}' has not been declared", name)
-            }
-            ErrorKind::UndefinedVariable(name) => {
-                write!(f, "Variable '{}' has been declared but not initialized", name)
             }
             ErrorKind::NotLogicalOperator(token) => {
                 write!(f, "Token '{}' is not a logical operator", token)

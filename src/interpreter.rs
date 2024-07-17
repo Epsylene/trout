@@ -6,19 +6,26 @@ use crate::error::{Error, ErrorKind, Result};
 use crate::ast::{Expr, Stmt};
 use crate::function::Callable;
 use crate::environment::{Environment, GLOBAL_ENV};
+use crate::resolver::ScopeDepth;
 
 pub struct Interpreter {
     // The interpreter needs to keep track of the environment
     // in which the program is running, so that it can store
     // and retrieve variables.
     pub environment: Environment,
+    pub scopes: ScopeDepth,
 }
 
 impl Interpreter {
     pub fn new() -> Self {
         Interpreter {
             environment: Environment::local(Box::new(GLOBAL_ENV.clone())),
+            scopes: ScopeDepth::new(),
         }
+    }
+
+    pub fn resolve(&mut self, expr: &Expr, depth: usize) {
+        self.scopes.insert(expr.clone(), depth);
     }
 
     pub fn interpret(&mut self, program: &[Stmt]) -> Result<Value> {
@@ -193,7 +200,7 @@ impl Interpreter {
         //          // statements 
         //      }
         //
-        // is equivalent to the following code:
+        // is equivalent to the following code
         //
         //      let i = a;
         //      while i < b {
@@ -214,7 +221,7 @@ impl Interpreter {
         Ok(Value::Nil)
     }
     
-    fn function(&mut self, name: &Token, params: &[Token], body: &Stmt) -> Result<Value> {
+    fn function(&mut self, name: &Token, params: &[Token], body: &Box<Stmt>) -> Result<Value> {
         // A function is defined by its name, its parameters,
         // and its body.
         let function = Value::function(name, params, body);
@@ -265,20 +272,19 @@ impl Interpreter {
 
     fn evaluate(&mut self, expr: &Expr) -> Result<Value> {
         // However complicated, an expression is just the
-        // composition of 4 different types of subexpressions:
-        // literals, unary expressions, binary expressions, and
-        // groupings. Then, we just need to match the global
-        // expression, and call the corresponding function,
-        // which will do the same with the sub-expressions, and
-        // so on, until we reach the leaves of the tree, which
-        // are literals, and we can return all the way up with
-        // a final value for the whole expression. This is
-        // called a post-order traversal, because we first
-        // "visit" (evaluate) the branches of the tree before
-        // visiting the starting node: the resulting value is
-        // computed in the same way as a postfix notation (also
-        // called "reverse Polish notation": 3 + 4 is 3 4 +,
-        // for example).
+        // composition of a finite number of different
+        // sub-expressions. Then, for each expression, we just
+        // need to match its type, and call the corresponding
+        // function, which will do the same with the
+        // sub-expressions, and so on, until we reach the
+        // leaves of the tree, which are literals, and we can
+        // return all the way up with a final value for the
+        // whole expression. This is called a post-order
+        // traversal, because we first "visit" (evaluate) the
+        // branches of the tree before visiting the starting
+        // node: the resulting value is computed in the same
+        // way as a postfix notation (also called "reverse
+        // Polish notation": 3 + 4 is 3 4 +, for example).
         match expr {
             Expr::Literal { value } => self.literal(value),
             Expr::Unary { operator, right } => self.unary(operator, right),
