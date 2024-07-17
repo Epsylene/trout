@@ -9,7 +9,7 @@ use core::slice;
 use std::collections::HashMap;
 
 type ScopeBinding = HashMap<String, Binding>;
-pub type ScopeDepth = HashMap<Expr, usize>;
+pub type ScopeDepth = HashMap<Token, usize>;
 
 // 
 struct Resolver {
@@ -50,8 +50,8 @@ impl Resolver {
 
     fn resolve_expr(&mut self, expr: &Expr) -> Result<()> {
         match expr {
-            Expr::Variable { name } => self.var_expr(name, expr),
-            Expr::Assign { lhs, rhs } => self.assign_expr(lhs, rhs, expr),
+            Expr::Variable { name } => self.var_expr(name),
+            Expr::Assign { lhs, rhs } => self.assign_expr(lhs, rhs),
             Expr::Logical { left, operator: _, right } => self.binary_expr(left, right),
             Expr::Binary { left, operator: _, right } => self.binary_expr(left, right),
             Expr::Call { callee, arguments, close_paren: _ } => self.call_expr(callee, arguments),
@@ -62,17 +62,16 @@ impl Resolver {
         }
     }
 
-    fn resolve_scope(&mut self, expr: &Expr, name: &Token) -> Result<()> {
+    fn resolve_scope(&mut self, name: &Token) -> Result<()> {
         // To find the scope of definition of the variable, we
         // iterate in reverse order the scopes stack, from
         // innermost to outermost.
         for (i, scope) in self.scopes.iter().enumerate().rev() {
             if scope.contains_key(&name.lexeme) {
                 // If the variable is found in a scope, then we
-                // can ask the interpreter to actually resolve
-                // the expression locally, providing the depth
-                // at which the variable is situated.
-                self.interpreter.resolve(expr, self.scopes.len() - 1 - i);
+                // provide the interpreter the depth at which
+                // the variable is situated.
+                self.interpreter.scope_depth(name, self.scopes.len() - 1 - i);
                 return Ok(());
             }
         }
@@ -205,7 +204,7 @@ impl Resolver {
         }
     }
 
-    fn var_expr(&mut self, var: &Token, var_expr: &Expr) -> Result<()> {
+    fn var_expr(&mut self, var: &Token) -> Result<()> {
         // In the current scope, check:
         let scope = self.scopes.last().expect("No scope found");
 
@@ -223,16 +222,16 @@ impl Resolver {
             // If it has been defined, we can resolve its
             // innermost scope of definition (where in the
             // program it was defined last).
-            Some(Binding::Definition) => self.resolve_scope(var_expr, var),
+            Some(Binding::Definition) => self.resolve_scope(var),
         }
     }
 
-    fn assign_expr(&mut self, lhs: &Token, rhs: &Expr, assign_expr: &Expr) -> Result<()> {
+    fn assign_expr(&mut self, lhs: &Token, rhs: &Expr) -> Result<()> {
         // We first resolve the right-hand side of the
         // equation, then resolve the scope of the left-hand
         // side being assigned to.
         self.resolve_expr(rhs)?;
-        self.resolve_scope(assign_expr, lhs);
+        self.resolve_scope(lhs);
 
         Ok(())
     }

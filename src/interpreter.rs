@@ -24,8 +24,8 @@ impl Interpreter {
         }
     }
 
-    pub fn resolve(&mut self, expr: &Expr, depth: usize) {
-        self.scopes.insert(expr.clone(), depth);
+    pub fn scope_depth(&mut self, var: &Token, depth: usize) {
+        self.scopes.insert(var.clone(), depth);
     }
 
     pub fn interpret(&mut self, program: &[Stmt]) -> Result<Value> {
@@ -323,6 +323,8 @@ impl Interpreter {
     }
 
     fn assign(&mut self, lhs: &Token, rhs: &Expr) -> Result<Value> {
+        match self.scopes.get(var_expr)
+        
         // First check if the variable to assign actually
         // exists, that is, if it has been declared in this
         // environment (scope) or any enclosing one.

@@ -1,6 +1,7 @@
+use std::hash::{Hash, Hasher};
 use crate::literal::LiteralType;
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Hash)]
 pub enum TokenKind {
     // Single-character tokens
     LeftParen, RightParen, LeftBrace, RightBrace,
@@ -94,5 +95,14 @@ impl Token {
             literal: LiteralType::Nil,
             location: eof,
         }
+    }
+}
+
+impl Eq for Token {}
+
+impl Hash for Token {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.kind.hash(state);
+        self.lexeme.hash(state);
     }
 }

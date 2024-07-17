@@ -154,62 +154,6 @@ impl Expr {
     }
 }
 
-impl Eq for Expr {}
-
-impl Hash for Expr {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        match self {
-            Expr::Literal { value } => {
-                "Literal".hash(state);
-                value.lexeme.hash(state);
-            }
-            Expr::Unary { operator, right } => {
-                "Unary".hash(state);
-                operator.lexeme.hash(state);
-                right.hash(state);
-            }
-            Expr::Binary { left, operator, right } => {
-                "Binary".hash(state);
-                left.hash(state);
-                operator.lexeme.hash(state);
-                right.hash(state);
-            }
-            Expr::Logical { left, operator, right } => {
-                "Logical".hash(state);
-                left.hash(state);
-                operator.lexeme.hash(state);
-                right.hash(state);
-            }
-            Expr::Grouping { expression } => {
-                "Grouping".hash(state);
-                expression.hash(state);
-            }
-            Expr::Variable { name } => {
-                "Variable".hash(state);
-                name.lexeme.hash(state);
-            }
-            Expr::Assign { lhs, rhs } => {
-                "Assign".hash(state);
-                lhs.lexeme.hash(state);
-                rhs.hash(state);
-            }
-            Expr::Call { callee, arguments, close_paren: _ } => {
-                "Call".hash(state);
-                callee.hash(state);
-                for arg in arguments {
-                    arg.hash(state);
-                }
-            }
-            Expr::Lambda { params, body } => {
-                "Lambda".hash(state);
-                for param in params {
-                    param.lexeme.hash(state);
-                }
-            }
-        }
-    }
-}
-
 // A statement is a construct expressing some action to be
 // carried out: declarations specify the data on which a
 // program is to operate, while statements specify the actions
