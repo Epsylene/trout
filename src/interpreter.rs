@@ -24,8 +24,8 @@ impl Interpreter {
         }
     }
 
-    pub fn scope_depth(&mut self, var: &Token, depth: usize) {
-        self.scopes.insert(var.clone(), depth);
+    pub fn set_scope(&mut self, name: &Token, depth: usize) {
+        self.scopes.insert(name.clone(), depth);
     }
 
     pub fn interpret(&mut self, program: &[Stmt]) -> Result<Value> {
@@ -221,7 +221,7 @@ impl Interpreter {
         Ok(Value::Nil)
     }
     
-    fn function(&mut self, name: &Token, params: &[Token], body: &Box<Stmt>) -> Result<Value> {
+    fn function(&mut self, name: &Token, params: &[Token], body: &Stmt) -> Result<Value> {
         // A function is defined by its name, its parameters,
         // and its body.
         let function = Value::function(name, params, body);
@@ -304,9 +304,11 @@ impl Interpreter {
     }
 
     fn variable(&self, name: &Token) -> Result<Value> {
+        let depth = self.scopes.get(name).cloned().expect("Variable not resolved");
+
         // A variable is evaluated by looking up its value in
         // the environment.
-        match self.environment.get(&name.lexeme) {
+        match self.environment.get_at(depth, &name.lexeme) {
             // Declared and initialized
             Some(Some(value)) => Ok(value.clone()),
             // Declared but not initialized
@@ -322,17 +324,20 @@ impl Interpreter {
         }
     }
 
-    fn assign(&mut self, lhs: &Token, rhs: &Expr) -> Result<Value> {
-        match self.scopes.get(var_expr)
-        
+    fn assign(&mut self, lhs: &Token, rhs: &Expr) -> Result<Value> {        
         // First check if the variable to assign actually
         // exists, that is, if it has been declared in this
-        // environment (scope) or any enclosing one.
-        if self.environment.get(&lhs.lexeme).is_some() {
-            // If it has, evaluate the expression and assign.
+        // environment (scope) or any enclosing one. Thanks to
+        // static analysis, this means that we just have to
+        // check for the depth of the variable in the
+        // environment stack--if it is not None, the variable
+        // has been declared at that depth.
+        if let Some(depth) = self.scopes.get(lhs).cloned() {
+            // In that case, evaluate the expression and assign
+            // at the corresponding depth.
             let value = self.evaluate(rhs)?;
-            self.environment.assign(lhs.lexeme.clone(), value.clone());
-
+            self.environment.assign_at(depth, lhs.lexeme.clone(), value.clone());
+            
             // Returning the value from the assignment allows
             // nesting assignments inside expressions.
             Ok(value)
@@ -342,6 +347,24 @@ impl Interpreter {
                 ErrorKind::VariableNotDeclared(lhs.lexeme.clone()))
             )
         }
+        
+        // 
+        // 
+        // 
+        // if self.environment.get(&lhs.lexeme).is_some() {
+        //     // If it has, evaluate the expression and assign.
+        //     let value = self.evaluate(rhs)?;
+        //     self.environment.assign(lhs.lexeme.clone(), value.clone());
+
+        //     // Returning the value from the assignment allows
+        //     // nesting assignments inside expressions.
+        //     Ok(value)
+        // } else {
+        //     Err(Error::new(
+        //         &lhs.location, 
+        //         ErrorKind::VariableNotDeclared(lhs.lexeme.clone()))
+        //     )
+        // }
     }
 
     fn call(&mut self, callee: &Expr, arguments: &[Expr], close_paren: &Token) -> Result<Value> {

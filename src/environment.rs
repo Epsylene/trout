@@ -62,13 +62,27 @@ impl Environment {
         }
     }
 
+    pub fn assign_at(&mut self, depth: usize, name: String, value: Value) {
+        // Assigning a value to a variable in the environment
+        // that is 'depth' levels up the stack.
+        let mut env = self;
+        for _ in 0..depth {
+            match &mut env.enclosing {
+                Some(enclosing) => { env = enclosing },
+                None => return,
+            }
+        }
+
+        env.assign(name, value);
+    }
+
     pub fn get(&self, name: &str) -> Option<&Option<Value>> {
         // Returning the value of the variable with the given
-        // label. If the variable exists in the current
-        // environment, we return it directly; otherwise, we
-        // check if it exists in the parent environment, which
-        // will itself check its parent if needed, and so on up
-        // to the global scope.
+        // label in the current. If the variable exists in the
+        // current environment, we return it directly;
+        // otherwise, we check if it exists in the parent
+        // environment, which will itself check its parent if
+        // needed, and so on up to the global scope.
         match self.values.get(name) {
             Some(value) => Some(value),
             None => match &self.enclosing {
@@ -76,6 +90,28 @@ impl Environment {
                 None => None,
             }
         }
+    }
+
+    pub fn get_at(&self, depth: usize, name: &str) -> Option<&Option<Value>> {
+        // Returning the value of the variable with the given
+        // label, but only in the environment that is 'depth'
+        // levels up the stack.
+        let mut env = self;
+        for _ in 0..depth {
+            match &env.enclosing {
+                // While there is an enclosing environment, we
+                // move up the stack.
+                Some(enclosing) => { env = enclosing },
+                // If at any point we get None, it means we
+                // have reached the end of the stack--'depth'
+                // is too big.
+                None => return None,
+            }
+        }
+
+        // Once we have the correct environment, we return the
+        // value of the variable with the given label.
+        env.get(name)
     }
 
     pub fn to_enclosing(&mut self) {

@@ -71,7 +71,7 @@ impl Resolver {
                 // If the variable is found in a scope, then we
                 // provide the interpreter the depth at which
                 // the variable is situated.
-                self.interpreter.scope_depth(name, self.scopes.len() - 1 - i);
+                self.interpreter.set_scope(name, self.scopes.len() - 1 - i);
                 return Ok(());
             }
         }
