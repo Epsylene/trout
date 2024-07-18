@@ -1,6 +1,10 @@
-fn enclosing() {
-    let a = "From enclosing";
-    return fn () { print(a); }
-}
+let a = "global";
+{
+  fn print_a() {
+    print(a);
+  }
 
-enclosing()();
+  print_a();
+  let a = "block";
+  print_a();
+}

@@ -5,11 +5,13 @@
 Interpreter for a simple dynamically-typed programming
 language, from the book [*Crafting
 Interpreters*](https://craftinginterpreters.com/) by Robert
-Nystrom, implemented in Rust. The program consists of three main parts:
+Nystrom, implemented in Rust with some changes along the way.
+The program consists of four main parts:
 
 1. A scanner that reads the source code, either from a file or a REPL, and produces a sequence of tokens.
 2. A parser that produces an abstract sintax tree from the sequence of tokens.
-3. An interpreter that traverses the AST and executes the code.
+3. A resolver that performs static analysis on the AST.
+4. An interpreter that traverses the AST and executes the code.
 
 ## Sintax
 
@@ -49,17 +51,4 @@ Functions are defined with the sintax `fn name(a, b, ...) { ... }`.  Functions c
 
 Lambdas are similar to functions, but they are anonymous and they capture the environment they are created in. They are defined with the sintax `fn (...) { ... }`.
 
-Lambdas carry the environment they were created in with them, so they can access variables from that scope even after its end. To the contrary, functions are stateless, but they can access the environment they are called in; for example, this sintax is valid:
-
-```trout
-fn print_a() {
-  print(a);
-}
-
-fn other() {
-  let a = 10;
-  print_a();
-}
-
-other(); // prints 10
-```
+Lambdas carry the environment they were created in with them, so they can access variables from that scope even after its end. To the contrary, functions are stateless, but they can access the environment they are called in.
