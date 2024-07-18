@@ -24,8 +24,8 @@ impl Interpreter {
         }
     }
 
-    pub fn set_scope(&mut self, name: &Token, depth: usize) {
-        self.scopes.insert(name.clone(), depth);
+    pub fn set_depths(&mut self, scopes: &ScopeDepth) {
+        self.scopes = scopes.clone();
     }
 
     pub fn interpret(&mut self, program: &[Stmt]) -> Result<Value> {
@@ -304,7 +304,7 @@ impl Interpreter {
     }
 
     fn variable(&self, name: &Token) -> Result<Value> {
-        let depth = self.scopes.get(name).cloned().expect("Variable not resolved");
+        let depth = self.scopes.get(name).cloned().unwrap_or_else(|| panic!("Variable '{}' not resolved", name.lexeme.as_str()));
 
         // A variable is evaluated by looking up its value in
         // the environment.
@@ -314,7 +314,7 @@ impl Interpreter {
             // Declared but not initialized
             Some(None) => Err(Error::new(
                 &name.location, 
-                ErrorKind::UndefinedVariable(name.lexeme.clone()))
+                ErrorKind::VariableNotDefined(name.lexeme.clone()))
             ),
             // Not declared
             None => Err(Error::new(
@@ -347,24 +347,6 @@ impl Interpreter {
                 ErrorKind::VariableNotDeclared(lhs.lexeme.clone()))
             )
         }
-        
-        // 
-        // 
-        // 
-        // if self.environment.get(&lhs.lexeme).is_some() {
-        //     // If it has, evaluate the expression and assign.
-        //     let value = self.evaluate(rhs)?;
-        //     self.environment.assign(lhs.lexeme.clone(), value.clone());
-
-        //     // Returning the value from the assignment allows
-        //     // nesting assignments inside expressions.
-        //     Ok(value)
-        // } else {
-        //     Err(Error::new(
-        //         &lhs.location, 
-        //         ErrorKind::VariableNotDeclared(lhs.lexeme.clone()))
-        //     )
-        // }
     }
 
     fn call(&mut self, callee: &Expr, arguments: &[Expr], close_paren: &Token) -> Result<Value> {
@@ -642,84 +624,141 @@ mod tests {
     use crate::value::Value;
     use crate::scanner::Scanner;
     use crate::parser::Parser;
+    use crate::resolver::Resolver;
+    use crate::token::Location;
 
-    fn interpret(input: &str) -> Value {
+    fn interpret(input: &str) -> Result<Value, Vec<Error>> {
         let mut scanner = Scanner::new(input);
-        let tokens = scanner.scan().unwrap();
+        let tokens = scanner.scan()?;
         let mut parser = Parser::new(tokens);
-        let program = parser.parse().unwrap();
+        let program = parser.parse()?;
+        let mut resolver = Resolver::new();
+        resolver.resolve(&program)?;
         let mut interpreter = Interpreter::new();
+        interpreter.set_depths(resolver.depths());
         
-        interpreter.interpret(&program).unwrap()
+        interpreter.interpret(&program).map_err(|e| e.into())
     }
 
     #[test]
     fn test_declaration() {
-        let input = "let a = 5; a;";
-        let res = interpret(input);
+        let input = 
+            r"
+                let a = 5; 
+                a
+            ";
+        let res = interpret(input).unwrap();
         assert_eq!(res, Value::Int(5));
     }
 
     #[test]
     fn test_assignment() {
-        let input = "let a = 5; a = 6; a;";
-        let res = interpret(input);
+        let input = 
+            r"
+                let a = 5; 
+                a = 6; 
+                a
+            ";
+        let res = interpret(input).unwrap();
         assert_eq!(res, Value::Int(6));
     }
 
     #[test]
     fn test_print() {
-        let input = "print(5);";
-        let res = interpret(input);
+        let input = "print(5)";
+        let res = interpret(input).unwrap();
         assert_eq!(res, Value::Nil);
     }
 
     #[test]
-    fn test_expression() {
-        let input = "5 + 6;";
-        let res = interpret(input);
-        assert_eq!(res, Value::Int(11));
-    }
-
-    #[test]
-    fn test_grouping() {
-        let input = "(5 + 6) * 2;";
-        let res = interpret(input);
+    fn test_grouping_expr() {
+        let input = "(5 + 6) * 2";
+        let res = interpret(input).unwrap();
         assert_eq!(res, Value::Int(22));
     }
 
     #[test]
     fn test_if() {
-        let input = "let a = 5; if a < 6 { a = 6; } a;";
-        let res = interpret(input);
+        let input = 
+            r"  
+                let a = 5;
+                if a < 6 { 
+                    a = 6;
+                }
+                a
+            ";
+        let res = interpret(input).unwrap();
         assert_eq!(res, Value::Int(6));
     }
 
     #[test]
     fn test_while() {
-        let input = "let a = 5; while a < 6 { a = a + 1; } a;";
-        let res = interpret(input);
+        let input = 
+            r"
+                let a = 5; 
+                while a < 6 {
+                    a = a + 1; 
+                } 
+                a
+            ";
+        let res = interpret(input).unwrap();
         assert_eq!(res, Value::Int(6));
     }
 
     #[test]
     fn test_for() {
-        let input = "let a = 0; for i=0..5 { a = i; } a;";
-        let res = interpret(input);
+        let input = 
+            r"
+                let a = 0; 
+                for i=0..5 {
+                    a = i; 
+                } 
+                a
+            ";
+        let res = interpret(input).unwrap();
         assert_eq!(res, Value::Int(4));
     }
 
     #[test]
-    fn test_blocks() {
-        let input = "let a = 5; { let b = 6; a = b; } a;";
-        let res = interpret(input);
+    fn test_scopes() {
+        let input = 
+            r"
+                let a = 5; 
+                {
+                    let b = 6; 
+                    a = b; 
+                } 
+                a
+            ";
+        let res = interpret(input).unwrap();
         assert_eq!(res, Value::Int(6));
     }
 
     #[test]
     fn test_function() {
-        let input = "fn add(a, b) { a + b; }; add(5, 6);";
-        let res = interpret(input);
+        let input = 
+            r"
+                fn add(a, b) {
+                    a + b; 
+                }
+                add(5, 6)
+            ";
+        let res = interpret(input).unwrap();
         assert_eq!(res, Value::Int(11));
+    }
+
+    #[test]
+    fn test_autoinit() {
+        let input = "let a = a + 2;";
+        let res = interpret(input);
+        if let Err(errors) = res {
+            assert_eq!(errors.len(), 1);
+            assert_eq!(errors[0], Error::new(
+                &Location::new(1, 9),
+                ErrorKind::AutoInitialization("a".to_string())
+            ));
+        } else {
+            panic!();
+        }
     }
 }

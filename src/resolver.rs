@@ -1,8 +1,9 @@
 use crate::{
     ast::{Expr, Stmt}, 
-    error::{Result, Error, ErrorKind}, 
-    interpreter::Interpreter,
+    error::{Error, ErrorKind, Result}, 
+    function::NATIVE_FUNCTIONS, 
     token::Token,
+    value::Value,
 };
 
 use core::slice;
@@ -11,10 +12,9 @@ use std::collections::HashMap;
 type ScopeBinding = HashMap<String, Binding>;
 pub type ScopeDepth = HashMap<Token, usize>;
 
-// 
-struct Resolver {
-    interpreter: Interpreter,
-    scopes: Vec<ScopeBinding>,
+pub struct Resolver {
+    bindings: Vec<ScopeBinding>,
+    scopes: ScopeDepth,
 }
 
 enum Binding {
@@ -23,8 +23,45 @@ enum Binding {
 }
 
 impl Resolver {
-    pub fn new(interpreter: Interpreter) -> Self {
-        Resolver { interpreter, scopes: Vec::new() }
+    pub fn new() -> Self {
+        Resolver { 
+            bindings: {
+                // Put the native functions in the global scope
+                // beforehand.
+                let mut global = ScopeBinding::new();
+                for func in NATIVE_FUNCTIONS.iter() {
+                    if let Value::NativeFunction(native) = func {
+                        global.insert(native.name.clone(), Binding::Definition);
+                    }
+                }
+                vec![global]
+            }, 
+            scopes: ScopeDepth::new() }
+    }
+
+    pub fn depths(&self) -> &ScopeDepth {
+        &self.scopes
+    }
+
+    fn declare(&mut self, var: &Token) {
+        // From the current scope (the last one in the stack),
+        // we insert a (name, binding) pair, where 'name' is
+        // the identifier of the variable and a binding that
+        // marks if the variable is in declaration or in
+        // definition, so that we can catch the cases where the
+        // variable is initialized with itself or a shadowed
+        // variable.
+        if let Some(scope) = self.bindings.last_mut() {
+            scope.insert(var.lexeme.clone(), Binding::Declaration);
+        }
+    }
+
+    fn define(&mut self, var: &Token) {
+        // On definition, we update the variable binding tag,
+        // so that it can now be given a value.
+        if let Some(scope) = self.bindings.last_mut() {
+            scope.insert(var.lexeme.clone(), Binding::Definition);
+        }
     }
 
     pub fn resolve(&mut self, statements: &[Stmt]) -> Result<()> {
@@ -66,12 +103,12 @@ impl Resolver {
         // To find the scope of definition of the variable, we
         // iterate in reverse order the scopes stack, from
         // innermost to outermost.
-        for (i, scope) in self.scopes.iter().enumerate().rev() {
+        for (i, scope) in self.bindings.iter().enumerate().rev() {
             if scope.contains_key(&name.lexeme) {
                 // If the variable is found in a scope, then we
                 // provide the interpreter the depth at which
                 // the variable is situated.
-                self.interpreter.set_scope(name, self.scopes.len() - 1 - i);
+                self.scopes.insert(name.clone(), self.bindings.len() - 1 - i);
                 return Ok(());
             }
         }
@@ -83,9 +120,9 @@ impl Resolver {
         // A block creates a new, temporary scope, so we push
         // one onto the stack, resolve the body, and then pop
         // when we're done.
-        self.scopes.push(HashMap::new());
+        self.bindings.push(HashMap::new());
         self.resolve(body)?;
-        self.scopes.pop();
+        self.bindings.pop();
 
         Ok(())
     }
@@ -95,8 +132,9 @@ impl Resolver {
         // avoid cases where a local variable is initialized
         // with the value of an outer scope variable of the
         // same name (that is, code of the form "var a = ...; {
-        // var a = a; }"). First, we declare the variable, then
-        // resolve the initializer expression, if any...
+        // var a = a; }") or with itself. First, we declare the
+        // variable, then resolve the initializer expression,
+        // if any...
         self.declare(name);
         if let Some(initializer) = initializer {
             self.resolve_expr(initializer)?;
@@ -122,7 +160,7 @@ impl Resolver {
         // which we readily declare and define the parameters,
         // since we need to be able to "use" them in the body
         // and they take values from the arguments in a call.
-        self.scopes.push(HashMap::new());
+        self.bindings.push(ScopeBinding::new());
         for param in params {
             self.declare(param);
             self.define(param);
@@ -131,7 +169,7 @@ impl Resolver {
         // Then we can resolve the body itself, and pop the
         // function scope at the end.
         self.resolve(slice::from_ref(body))?;
-        self.scopes.pop();
+        self.bindings.pop();
 
         Ok(())
     }
@@ -183,47 +221,23 @@ impl Resolver {
         Ok(())
     }
 
-    fn declare(&mut self, var: &Token) {
-        // From the current scope (the last one in the stack),
-        // we insert a (name, binding) pair, where 'name' is
-        // the identifier of the variable and a binding that
-        // marks if the variable is in declaration or in
-        // definition, so that we can catch the cases where the
-        // variable is initialized with itself or a shadowed
-        // variable.
-        if let Some(scope) = self.scopes.last_mut() {
-            scope.insert(var.lexeme.clone(), Binding::Declaration);
-        }
-    }
-
-    fn define(&mut self, var: &Token) {
-        // On definition, we update the variable binding tag,
-        // so that it can now be given a value.
-        if let Some(scope) = self.scopes.last_mut() {
-            scope.insert(var.lexeme.clone(), Binding::Definition);
-        }
-    }
-
     fn var_expr(&mut self, var: &Token) -> Result<()> {
-        // In the current scope, check:
-        let scope = self.scopes.last().expect("No scope found");
+        // In the current scope...
+        let scope = self.bindings.last().expect("No scope found");
 
-        match scope.get(&var.lexeme) {
-            // - If the variable has not been declared;
-            None => Err(Error::new(
+        // ...check if the variable is in "declaration" state
+        // to catch auto-initializations.
+        if let Some(Binding::Declaration) = scope.get(&var.lexeme) {
+            return Err(Error::new(
                 &var.location,
-                ErrorKind::VariableNotDeclared(var.lexeme.clone())
-            )),
-            // - If it has been declared but not defined.
-            Some(Binding::Declaration) => Err(Error::new(
-                &var.location,
-                ErrorKind::UndefinedVariable(var.lexeme.clone())
-            )),
-            // If it has been defined, we can resolve its
-            // innermost scope of definition (where in the
-            // program it was defined last).
-            Some(Binding::Definition) => self.resolve_scope(var),
+                ErrorKind::AutoInitialization(var.lexeme.clone())
+            ))
         }
+
+        // If it has been defined, we can resolve its
+        // innermost scope of definition (where in the
+        // program it was defined last).
+        self.resolve_scope(var)
     }
 
     fn assign_expr(&mut self, lhs: &Token, rhs: &Expr) -> Result<()> {
@@ -231,7 +245,7 @@ impl Resolver {
         // equation, then resolve the scope of the left-hand
         // side being assigned to.
         self.resolve_expr(rhs)?;
-        self.resolve_scope(lhs);
+        self.resolve_scope(lhs)?;
 
         Ok(())
     }
@@ -261,13 +275,13 @@ impl Resolver {
         // create a scope for the lambda's body, declare and
         // define the parameters, resolve the body, and then
         // pop the scope.
-        self.scopes.push(HashMap::new());
+        self.bindings.push(HashMap::new());
         for param in params {
             self.declare(param);
             self.define(param);
         }
         self.resolve(slice::from_ref(body))?;
-        self.scopes.pop();
+        self.bindings.pop();
 
         Ok(())
     }

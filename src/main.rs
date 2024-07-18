@@ -1,7 +1,8 @@
 use std::{env, fs, io::{self, Write}};
-use interpreter::Interpreter;
 use scanner::Scanner;
 use parser::Parser;
+use resolver::Resolver;
+use interpreter::Interpreter;
 use value::Value;
 use error::AppError;
 
@@ -23,6 +24,7 @@ fn run_prompt() -> Result<(), AppError> {
     // at a time, interprets it, and returns the result to the
     // user. We need to define the program environment ouside
     // of the loop, so that it persists between iterations.
+    let mut resolver = Resolver::new();
     let mut interpreter = Interpreter::new();
     loop {
         print!("> ");
@@ -43,7 +45,7 @@ fn run_prompt() -> Result<(), AppError> {
 
         // We don't want to break the loop on an error, only to
         // print it.
-        match run(&input, &mut interpreter) {
+        match run(&input, &mut resolver, &mut interpreter) {
             Ok(Value::Nil) => (),
             Ok(value) => println!("{}", value),
             Err(e) => eprintln!("{}", e),
@@ -58,20 +60,24 @@ fn run_file(path: &str) -> Result<(), AppError> {
         AppError::Sys(format!("Error reading file {}", path))
     )?;
 
+    let mut resolver = Resolver::new();
     let mut interpreter = Interpreter::new();
 
     // When running a file, we don't care about the "result of
     // the last statement", so we just map that to unit.
-    run(&contents, &mut interpreter).map(|_| ())
+    run(&contents, &mut resolver, &mut interpreter).map(|_| ())
 }
 
-fn run(source: &str, interpreter: &mut Interpreter) -> Result<Value, AppError> {
+fn run(source: &str, resolver: &mut Resolver, interpreter: &mut Interpreter) -> Result<Value, AppError> {
     let mut scan = Scanner::new(source);
     let tokens = scan.scan().map_err(AppError::Compiler)?;
     
     let mut parser = Parser::new(tokens);
     let program = parser.parse().map_err(AppError::Compiler)?;
-    
+
+    resolver.resolve(&program).map_err(|e| AppError::Compiler(e.into()))?;
+
+    interpreter.set_depths(resolver.depths());
     interpreter.interpret(&program).map_err(|e| AppError::Compiler(e.into()))
 }
 

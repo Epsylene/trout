@@ -26,7 +26,7 @@ impl Display for AppError {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum ErrorKind {
     // Scanner
     LexemeOutOfBounds(usize, usize, usize),
@@ -52,7 +52,6 @@ pub enum ErrorKind {
 
     // Resolver
     VariableNotDeclared(String),
-    UndefinedVariable(String),
 
     // Interpreter
     NotUnaryOperator(String),
@@ -60,6 +59,8 @@ pub enum ErrorKind {
     NotIntOrFloat,
     NotAddOrConcat,
     NotLogicalOperator(String),
+    VariableNotDefined(String),
+    AutoInitialization(String),
     ForStartStopStepInt,
     NotCallable,
     FunctionArity(usize, usize),
@@ -128,11 +129,8 @@ impl Display for ErrorKind {
             }
 
             // Resolver
-            ErrorKind::VariableNotDeclared(name) => {
-                write!(f, "Variable '{}' has not been declared", name)
-            }
-            ErrorKind::UndefinedVariable(name) => {
-                write!(f, "Variable '{}' has been declared but not initialized", name)
+            ErrorKind::AutoInitialization(name) => {
+                write!(f, "Variable '{}' cannot be initialized with itself", name)
             }
 
             // Interpreter
@@ -151,6 +149,12 @@ impl Display for ErrorKind {
             ErrorKind::NotLogicalOperator(token) => {
                 write!(f, "Token '{}' is not a logical operator", token)
             }
+            ErrorKind::VariableNotDeclared(name) => {
+                write!(f, "Variable '{}' has not been declared", name)
+            }
+            ErrorKind::VariableNotDefined(name) => {
+                write!(f, "Variable '{}' has been declared but not initialized", name)
+            }
             ErrorKind::ForStartStopStepInt => {
                 write!(f, "The start, stop, and step values of a 'for' loop must be integers")
             }
@@ -167,7 +171,7 @@ impl Display for ErrorKind {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct Error {
     line: u32,
     column: u32,
