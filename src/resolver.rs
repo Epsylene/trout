@@ -100,7 +100,7 @@ impl Resolver {
     }
 
     fn resolve_scope(&mut self, name: &Token) -> Result<()> {
-        // To find the scope of definition of the variable, we
+        // To find the scope of declaration of the variable, we
         // iterate in reverse order the scopes stack, from
         // innermost to outermost.
         for (i, scope) in self.bindings.iter().enumerate().rev() {
@@ -109,11 +109,16 @@ impl Resolver {
                 // provide the interpreter the depth at which
                 // the variable is situated.
                 self.scopes.insert(name.clone(), self.bindings.len() - 1 - i);
-                return Ok(());
+                return Ok(())
             }
         }
 
-        Ok(())
+        // If the variable is not found in any scope, it means
+        // it has not been declared.
+        Err(Error::new(
+            &name.location,
+            ErrorKind::VariableNotDeclared(name.lexeme.clone())
+        ))
     }
 
     fn block_stmt(&mut self, body: &[Stmt]) -> Result<()> {
@@ -234,9 +239,9 @@ impl Resolver {
             ))
         }
 
-        // If it has been defined, we can resolve its
-        // innermost scope of definition (where in the
-        // program it was defined last).
+        // If it has been defined, we can resolve its innermost
+        // scope of definition (where in the program it was
+        // defined last).
         self.resolve_scope(var)
     }
 
