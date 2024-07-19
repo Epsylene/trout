@@ -477,12 +477,12 @@ mod tests {
 
     #[test]
     fn test_tokens() {
-        let source = "var a = 0";
+        let source = "let a = 0";
         let mut scanner = Scanner::new(source);
         let tokens = scanner.scan().unwrap();
 
         let expected = vec![
-            Token::new(TokenKind::Let, "var".to_string(), LiteralType::Nil, Location::new(1,1)),
+            Token::new(TokenKind::Let, "let".to_string(), LiteralType::Nil, Location::new(1,1)),
             Token::new(TokenKind::Identifier, "a".to_string(), LiteralType::Nil, Location::new(1,5)),
             Token::new(TokenKind::Equal, "=".to_string(), LiteralType::Nil, Location::new(1,7)),
             Token::new(TokenKind::Number, "0".to_string(), LiteralType::Int(0), Location::new(1,9)),
@@ -525,12 +525,12 @@ mod tests {
 
     #[test]
     fn test_comments() {
-        let source = "var a = 0 // This is a comment";
+        let source = "let a = 0 // This is a comment";
         let mut scanner = Scanner::new(source);
         let tokens = scanner.scan().unwrap();
 
         let expected = vec![
-            Token::new(TokenKind::Let, "var".to_string(), LiteralType::Nil, Location::new(1,1)),
+            Token::new(TokenKind::Let, "let".to_string(), LiteralType::Nil, Location::new(1,1)),
             Token::new(TokenKind::Identifier, "a".to_string(), LiteralType::Nil, Location::new(1,5)),
             Token::new(TokenKind::Equal, "=".to_string(), LiteralType::Nil, Location::new(1,7)),
             Token::new(TokenKind::Number, "0".to_string(), LiteralType::Int(0), Location::new(1,9)),

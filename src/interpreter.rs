@@ -665,14 +665,14 @@ mod tests {
 
     #[test]
     fn test_print() {
-        let input = "print(5)";
+        let input = "print(5);";
         let res = interpret(input).unwrap();
         assert_eq!(res, Value::Nil);
     }
 
     #[test]
     fn test_grouping_expr() {
-        let input = "(5 + 6) * 2";
+        let input = "(5 + 6) * 2;";
         let res = interpret(input).unwrap();
         assert_eq!(res, Value::Int(22));
     }
