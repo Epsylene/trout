@@ -162,7 +162,7 @@ impl Expr {
 // - An expression ("1 + 2 / 3"), producing a value;
 // - A print statement ("print expr"), printing the value of
 //   the argument expression;
-// - A variable declaration ("var name [= expr]"), declaring a
+// - A variable declaration ("let name [= expr]"), declaring a
 //   label for some value, optionally initialized with an
 //   expression;
 // - A block ("{ stmt1; stmt2; ... }"), enclosing a sequence of

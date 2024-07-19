@@ -17,6 +17,7 @@ pub struct Resolver {
     scopes: ScopeDepth,
 }
 
+#[derive(Debug)]
 enum Binding {
     Declaration,
     Definition,
@@ -34,7 +35,7 @@ impl Resolver {
                         global.insert(native.name.clone(), Binding::Definition);
                     }
                 }
-                vec![global]
+                vec![global, ScopeBinding::new()]
             }, 
             scopes: ScopeDepth::new() }
     }
@@ -62,6 +63,18 @@ impl Resolver {
         if let Some(scope) = self.bindings.last_mut() {
             scope.insert(var.lexeme.clone(), Binding::Definition);
         }
+    }
+
+    fn begin_scope(&mut self) {
+        // A new scope is created by pushing an empty scope
+        // onto the stack.
+        self.bindings.push(ScopeBinding::new());
+    }
+
+    fn end_scope(&mut self) {
+        // The current scope is ended by popping it from the
+        // stack.
+        self.bindings.pop();
     }
 
     pub fn resolve(&mut self, statements: &[Stmt]) -> Result<()> {
@@ -125,9 +138,9 @@ impl Resolver {
         // A block creates a new, temporary scope, so we push
         // one onto the stack, resolve the body, and then pop
         // when we're done.
-        self.bindings.push(HashMap::new());
+        self.begin_scope();
         self.resolve(body)?;
-        self.bindings.pop();
+        self.end_scope();
 
         Ok(())
     }
@@ -165,7 +178,7 @@ impl Resolver {
         // which we readily declare and define the parameters,
         // since we need to be able to "use" them in the body
         // and they take values from the arguments in a call.
-        self.bindings.push(ScopeBinding::new());
+        self.begin_scope();
         for param in params {
             self.declare(param);
             self.define(param);
@@ -174,7 +187,7 @@ impl Resolver {
         // Then we can resolve the body itself, and pop the
         // function scope at the end.
         self.resolve(slice::from_ref(body))?;
-        self.bindings.pop();
+        self.end_scope();
 
         Ok(())
     }
@@ -280,13 +293,13 @@ impl Resolver {
         // create a scope for the lambda's body, declare and
         // define the parameters, resolve the body, and then
         // pop the scope.
-        self.bindings.push(HashMap::new());
+        self.begin_scope();
         for param in params {
             self.declare(param);
             self.define(param);
         }
         self.resolve(slice::from_ref(body))?;
-        self.bindings.pop();
+        self.end_scope();
 
         Ok(())
     }

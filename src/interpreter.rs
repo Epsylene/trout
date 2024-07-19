@@ -141,7 +141,7 @@ impl Interpreter {
         }
     }
 
-    fn while_stmt(&mut self, condition: &Expr, body: &Stmt) -> Result<Value> {
+    fn while_stmt(&mut self, condition: &Expr, body: &Stmt) -> Result<Value> {        
         // To implement a while loop, we just need to evaluate
         // the condition, check its truthiness, and execute the
         // body while it stays true.
@@ -308,18 +308,13 @@ impl Interpreter {
 
         // A variable is evaluated by looking up its value in
         // the environment.
-        match self.environment.get_at(depth, &name.lexeme) {
+        match self.environment.get_at(depth, &name.lexeme).cloned().unwrap() {
             // Declared and initialized
-            Some(Some(value)) => Ok(value.clone()),
+            Some(value) => Ok(value.clone()),
             // Declared but not initialized
-            Some(None) => Err(Error::new(
-                &name.location, 
-                ErrorKind::VariableNotDefined(name.lexeme.clone()))
-            ),
-            // Not declared
             None => Err(Error::new(
                 &name.location, 
-                ErrorKind::VariableNotDeclared(name.lexeme.clone()))
+                ErrorKind::VariableNotDefined(name.lexeme.clone()))
             ),
         }
     }
@@ -332,7 +327,7 @@ impl Interpreter {
         // check for the depth of the variable in the
         // environment stack--if it is not None, the variable
         // has been declared at that depth.
-        if let Some(depth) = self.scopes.get(lhs).cloned() {
+        if let Some(depth) = self.scopes.get(&lhs).cloned() {
             // In that case, evaluate the expression and assign
             // at the corresponding depth.
             let value = self.evaluate(rhs)?;
@@ -641,22 +636,18 @@ mod tests {
     }
 
     #[test]
-    fn test_declaration() {
-        let input = 
-            r"
-                let a = 5; 
-                a
-            ";
+    fn test_grouping_expr() {
+        let input = "(5 + 6) * 2;";
         let res = interpret(input).unwrap();
-        assert_eq!(res, Value::Int(5));
+        assert_eq!(res, Value::Int(22));
     }
 
     #[test]
-    fn test_assignment() {
+    fn test_decl_assign() {
         let input = 
             r"
-                let a = 5; 
-                a = 6; 
+                let a = 5;
+                a = a + 1;
                 a
             ";
         let res = interpret(input).unwrap();
@@ -665,16 +656,13 @@ mod tests {
 
     #[test]
     fn test_print() {
-        let input = "print(5);";
+        let input = 
+            r"
+                let a = 5;
+                print(a);
+            ";
         let res = interpret(input).unwrap();
         assert_eq!(res, Value::Nil);
-    }
-
-    #[test]
-    fn test_grouping_expr() {
-        let input = "(5 + 6) * 2;";
-        let res = interpret(input).unwrap();
-        assert_eq!(res, Value::Int(22));
     }
 
     #[test]
@@ -683,7 +671,7 @@ mod tests {
             r"  
                 let a = 5;
                 if a < 6 { 
-                    a = 6;
+                    a = a + 1;
                 }
                 a
             ";
@@ -695,9 +683,9 @@ mod tests {
     fn test_while() {
         let input = 
             r"
-                let a = 5; 
+                let a = 2; 
                 while a < 6 {
-                    a = a + 1; 
+                    a = a + 1;
                 } 
                 a
             ";
@@ -709,25 +697,29 @@ mod tests {
     fn test_for() {
         let input = 
             r"
-                let a = 0; 
+                let a = 0;
                 for i=0..5 {
-                    a = i; 
-                } 
+                    a = a + i;
+                }
                 a
             ";
         let res = interpret(input).unwrap();
-        assert_eq!(res, Value::Int(4));
+        assert_eq!(res, Value::Int(10));
     }
 
     #[test]
     fn test_scopes() {
         let input = 
             r"
-                let a = 5; 
+                let a = 5;
                 {
-                    let b = 6; 
-                    a = b; 
-                } 
+                    let b = 6;
+                    {
+                        let c = 7;
+                        a = b + c;
+                    }
+                    a = b;
+                }
                 a
             ";
         let res = interpret(input).unwrap();
@@ -739,8 +731,21 @@ mod tests {
         let input = 
             r"
                 fn add(a, b) {
-                    a + b; 
+                    a + b;
                 }
+                add(5, 6)
+            ";
+        let res = interpret(input).unwrap();
+        assert_eq!(res, Value::Int(11));
+    }
+
+    #[test]
+    fn test_lambda() {
+        let input = 
+            r"
+                let add = fn(a, b) {
+                    a + b;
+                };
                 add(5, 6)
             ";
         let res = interpret(input).unwrap();

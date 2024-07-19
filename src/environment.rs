@@ -57,8 +57,6 @@ impl Environment {
         // environment, and so on up to the global scope.
         if let Entry::Occupied(mut e) = self.values.entry(name.clone()) {
             e.insert(Some(value));
-        } else if let Some(enclosing) = &mut self.enclosing {
-            enclosing.assign(name, value);
         }
     }
 
@@ -78,18 +76,10 @@ impl Environment {
 
     pub fn get(&self, name: &str) -> Option<&Option<Value>> {
         // Returning the value of the variable with the given
-        // label in the current. If the variable exists in the
-        // current environment, we return it directly;
-        // otherwise, we check if it exists in the parent
-        // environment, which will itself check its parent if
-        // needed, and so on up to the global scope.
-        match self.values.get(name) {
-            Some(value) => Some(value),
-            None => match &self.enclosing {
-                Some(enclosing) => enclosing.get(name),
-                None => None,
-            }
-        }
+        // label in the environment. We need a getter function
+        // to allow calling from a environment higher on the
+        // stack visited to look for a variable.
+        self.values.get(name)
     }
 
     pub fn get_at(&self, depth: usize, name: &str) -> Option<&Option<Value>> {
@@ -99,8 +89,9 @@ impl Environment {
         let mut env = self;
         for _ in 0..depth {
             match &env.enclosing {
-                // While there is an enclosing environment, we
-                // move up the stack.
+                // While there is an enclosing environment and
+                // we have not reached 'depth', we move up the
+                // stack.
                 Some(enclosing) => { env = enclosing },
                 // If at any point we get None, it means we
                 // have reached the end of the stack--'depth'
@@ -109,8 +100,8 @@ impl Environment {
             }
         }
 
-        // Once we have the correct environment, we return the
-        // value of the variable with the given label.
+        // Once we have the correct environment, we can return
+        // the value of the variable with the given label.
         env.get(name)
     }
 
