@@ -21,6 +21,12 @@ pub trait Callable {
     fn call(&self, interpreter: &mut Interpreter, args: Vec<Value>) -> Result<Value>;
 }
 
+pub enum FunctionType {
+    Function,
+    Lambda,
+    NativeFunction,
+}
+
 // A user-defined function (with the sintax "fn a() { ... }")
 // is a callable object that has a name (its identifier), a
 // body (the code it executes), and a list of parameters (the

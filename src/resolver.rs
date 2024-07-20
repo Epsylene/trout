@@ -1,7 +1,7 @@
 use crate::{
     ast::{Expr, Stmt}, 
     error::{Error, ErrorKind, Result}, 
-    function::NATIVE_FUNCTIONS, 
+    function::{FunctionType, NATIVE_FUNCTIONS}, 
     token::Token,
     value::Value,
 };
@@ -15,6 +15,7 @@ pub type ScopeDepth = HashMap<Token, usize>;
 pub struct Resolver {
     bindings: Vec<ScopeBinding>,
     scopes: ScopeDepth,
+    current_fn: Option<FunctionType>,
 }
 
 #[derive(Debug)]
@@ -37,7 +38,9 @@ impl Resolver {
                 }
                 vec![global, ScopeBinding::new()]
             }, 
-            scopes: ScopeDepth::new() }
+            scopes: ScopeDepth::new(),
+            current_fn: None, 
+        }
     }
 
     pub fn depths(&self) -> &ScopeDepth {
@@ -92,7 +95,7 @@ impl Resolver {
             Stmt::Var { name, initializer } => self.var_stmt(name, initializer),
             Stmt::Function { name, params, body } => self.function_stmt(name, params, body),
             Stmt::If { condition, then_branch, else_branch } => self.if_stmt(condition, then_branch, else_branch),
-            Stmt::Return { keyword: _, value } => self.return_stmt(value),
+            Stmt::Return { keyword, value } => self.return_stmt(keyword, value),
             Stmt::While { condition, body } => self.while_stmt(condition, body),
             Stmt::For { loop_var, start, stop, step, body } => self.for_stmt(loop_var, start, stop, step, body),
         }
@@ -174,6 +177,17 @@ impl Resolver {
         self.declare(name);
         self.define(name);
 
+        // In order to statically check for some conditions
+        // related to functions, like returning when we are
+        // outside of one, the resolver needs to track that
+        // information. Because we can have nested functions,
+        // we first store the "enclosing function" (which is
+        // None if we are at the first level) and then update
+        // the "current function" field to the type of the
+        // currently visited function.
+        let enclosing_fn = self.current_fn.take();
+        self.current_fn = Some(FunctionType::Function);
+
         // Then, a scope is created for the function's body, in
         // which we readily declare and define the parameters,
         // since we need to be able to "use" them in the body
@@ -189,6 +203,8 @@ impl Resolver {
         self.resolve(slice::from_ref(body))?;
         self.end_scope();
 
+        self.current_fn = enclosing_fn;
+
         Ok(())
     }
 
@@ -203,8 +219,17 @@ impl Resolver {
         Ok(())
     }
 
-    fn return_stmt(&mut self, value: &Option<Expr>) -> Result<()> {
-        // If there is a return value, we resolve it.
+    fn return_stmt(&mut self, keyword: &Token, value: &Option<Expr>) -> Result<()> {
+        // If we are not currently in a function, immediately
+        // return an error.
+        if self.current_fn.is_none() {
+            return Err(Error::new(
+                &keyword.location,
+                ErrorKind::Return(Value::Nil)
+            ))
+        }
+        
+        // If there is a return value, resolve it.
         if let Some(value) = value {
             self.resolve_expr(value)?;
         }
@@ -290,9 +315,13 @@ impl Resolver {
 
     fn lambda_expr(&mut self, params: &[Token], body: &Stmt) -> Result<()> {
         // Lambdas are like functions, but without a name. We
-        // create a scope for the lambda's body, declare and
-        // define the parameters, resolve the body, and then
-        // pop the scope.
+        // start by saving the "in-function" state...
+        let enclosing_fn = self.current_fn.take();
+        self.current_fn = Some(FunctionType::Lambda);
+
+        // ...then creating a scope for the lambda's body,
+        // declaring and defining the parameters, resolving the
+        // body, popping the scope at the end...
         self.begin_scope();
         for param in params {
             self.declare(param);
@@ -300,6 +329,9 @@ impl Resolver {
         }
         self.resolve(slice::from_ref(body))?;
         self.end_scope();
+
+        // ...and restoring the previous state.
+        self.current_fn = enclosing_fn;
 
         Ok(())
     }
