@@ -52,6 +52,7 @@ pub enum ErrorKind {
 
     // Resolver
     VariableNotDeclared(String),
+    AutoInitialization(String),
 
     // Interpreter
     NotUnaryOperator(String),
@@ -60,7 +61,6 @@ pub enum ErrorKind {
     NotAddOrConcat,
     NotLogicalOperator(String),
     VariableNotDefined(String),
-    AutoInitialization(String),
     ForStartStopStepInt,
     NotCallable,
     FunctionArity(usize, usize),
@@ -129,8 +129,11 @@ impl Display for ErrorKind {
             }
 
             // Resolver
+            ErrorKind::VariableNotDeclared(name) => {
+                write!(f, "Variable '{}' has not been declared", name)
+            }
             ErrorKind::AutoInitialization(name) => {
-                write!(f, "Variable '{}' cannot be initialized with itself", name)
+                write!(f, "Variable '{}' cannot be initialized with itself or a shadowed variable", name)
             }
 
             // Interpreter
@@ -141,16 +144,13 @@ impl Display for ErrorKind {
                 write!(f, "Token '{}' is not a binary operator", token)
             }
             ErrorKind::NotIntOrFloat => {
-                write!(f, "Operand(s) must be a number (int or float)")
+                write!(f, "Operand(s) must be of numeric type (int or float)")
             }
             ErrorKind::NotAddOrConcat => {
                 write!(f, "Operands must be two numbers (int or float) or two strings")
             }
             ErrorKind::NotLogicalOperator(token) => {
                 write!(f, "Token '{}' is not a logical operator", token)
-            }
-            ErrorKind::VariableNotDeclared(name) => {
-                write!(f, "Variable '{}' has not been declared", name)
             }
             ErrorKind::VariableNotDefined(name) => {
                 write!(f, "Variable '{}' has been declared but not initialized", name)
@@ -164,8 +164,8 @@ impl Display for ErrorKind {
             ErrorKind::FunctionArity(expected, got) => {
                 write!(f, "Function expected {} arguments, got {}", expected, got)
             }
-            ErrorKind::Return(value) => {
-                write!(f, "Return statement outside of function: {:?}", value)
+            ErrorKind::Return(_) => {
+                write!(f, "Return statement outside of function")
             }
         }
     }
