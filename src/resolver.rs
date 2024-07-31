@@ -98,6 +98,7 @@ impl Resolver {
             Stmt::Return { keyword, value } => self.return_stmt(keyword, value),
             Stmt::While { condition, body } => self.while_stmt(condition, body),
             Stmt::For { loop_var, start, stop, step, body } => self.for_stmt(loop_var, start, stop, step, body),
+            Stmt::Class { name, methods } => self.class_stmt(name, methods),
         }
     }
 
@@ -260,6 +261,15 @@ impl Resolver {
 
         // ...and the body last.
         self.resolve_stmt(body)?;
+
+        Ok(())
+    }
+
+    fn class_stmt(&mut self, name: &Token, methods: &[Stmt]) -> Result<()> {
+        // Like functions, classes are declared and defined at
+        // the same time.
+        self.declare(name);
+        self.define(name);
 
         Ok(())
     }

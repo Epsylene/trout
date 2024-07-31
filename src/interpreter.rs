@@ -7,6 +7,7 @@ use crate::ast::{Expr, Stmt};
 use crate::function::Callable;
 use crate::environment::{Environment, GLOBAL_ENV};
 use crate::resolver::ScopeDepth;
+use crate::class::Class;
 
 pub struct Interpreter {
     // The interpreter needs to keep track of the environment
@@ -81,6 +82,7 @@ impl Interpreter {
             Stmt::For { loop_var, start, stop, step, body } => self.for_stmt(loop_var, start, stop, step, body),
             Stmt::Function { name, params, body } => self.function(name, params, body),
             Stmt::Return { keyword, value } => self.return_stmt(keyword, value),
+            Stmt::Class { name, methods } => self.class_stmt(name, methods),
         }
     }
 
@@ -255,6 +257,17 @@ impl Interpreter {
             &keyword.location,
             ErrorKind::Return(value)
         ).into()
+    }
+
+    fn class_stmt(&mut self, name: &Token, methods: &[Stmt]) -> Result<Value> {
+        // The class exists by itself in the environment, so we
+        // bind its identifier.
+        self.environment.define(name.lexeme.clone(), None);
+        let class = Class::new(name.lexeme.clone());
+        self.environment.assign(name.lexeme.clone(), Value::class(name));
+
+        // The "class statement" itself does not return a value.
+        Ok(Value::Nil)
     }
 
     fn lambda(&mut self, params: &[Token], body: &Stmt) -> Result<Value> {

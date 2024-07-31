@@ -188,6 +188,7 @@ pub enum Stmt {
     For { loop_var: Token, start: Expr, stop: Expr, step: Option<Expr>, body: Box<Stmt> },
     Function { name: Token, params: Vec<Token>, body: Box<Stmt> },
     Return { keyword: Token, value: Option<Expr> },
+    Class { name: Token, methods: Vec<Stmt> },
 }
 
 impl Stmt {
@@ -238,6 +239,10 @@ impl Stmt {
 
     pub fn return_stmt(keyword: Token, value: Option<Expr>) -> Self {
         Stmt::Return { keyword, value }
+    }
+
+    pub fn class(name: Token, methods: Vec<Stmt>) -> Self {
+        Stmt::Class { name, methods }
     }
 }
 
@@ -337,6 +342,13 @@ impl Display for Stmt {
                     None => write!(f, "return")
                 }
             }
+            Stmt::Class { name, methods } => {
+                write!(f, "class {} {{\n", name.lexeme)?;
+                for method in methods {
+                    write!(f, "{}\n", method)?;
+                }
+                write!(f, "}}")
+            }
         }
     }
 }
@@ -352,6 +364,7 @@ impl Debug for Stmt {
             Stmt::For { loop_var, start, stop, step, body } => write!(f, "Stmt::For({:?}, {:?}, {:?}, {:?}, {:?})", loop_var, start, stop, step, body),
             Stmt::Function { name, params, body } => write!(f, "Stmt::Function({:?}, {:?}, {:?})", name, params, body),
             Stmt::Return { keyword: _, value } => write!(f, "Stmt::Return({:?})", value),
+            Stmt::Class { name, methods } => write!(f, "Stmt::Class({:?}, {:?})", name, methods),
         }
     }
 }

@@ -17,6 +17,7 @@ mod environment;
 mod function;
 mod value;
 mod resolver;
+mod class;
 
 fn run_prompt() -> Result<(), AppError> {
     // REPL loop (Read-Eval-Print-Loop): a simple interactive

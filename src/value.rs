@@ -7,7 +7,8 @@ use crate::{
     environment::Environment,
     interpreter::Interpreter, 
     literal::LiteralType, 
-    token::Token
+    token::Token,
+    class::Class,
 };
 
 #[derive(Clone, PartialEq)]
@@ -23,6 +24,9 @@ pub enum Value {
     Function(Function),
     Lambda(Lambda),
     NativeFunction(NativeFunction),
+
+    // Classes
+    Class(Class),
 }
 
 impl Value {
@@ -32,6 +36,10 @@ impl Value {
 
     pub fn lambda(params: &[Token], body: &Stmt, closure: Environment) -> Self {
         Value::Lambda(Lambda::new(params.to_vec(), body.clone(), closure))
+    }
+
+    pub fn class(name: &Token) -> Self {
+        Value::Class(Class::new(name.lexeme.clone()))
     }
 }
 
@@ -76,6 +84,7 @@ impl Debug for Value {
             Value::Function(func) => write!(f, "{:?}", func),
             Value::Lambda(lambda) => write!(f, "{:?}", lambda),
             Value::NativeFunction(func) => write!(f, "{:?}", func),
+            Value::Class(class) => write!(f, "{:?}", class),
         }
     }
 }
@@ -91,6 +100,7 @@ impl Display for Value {
             Value::Function(func) => write!(f, "{}()", func.name),
             Value::Lambda(lambda) => write!(f, "fn({})", lambda.params.join(", ")),
             Value::NativeFunction(func) => write!(f, "{}()", func.name),
+            Value::Class(class) => write!(f, "{}", class.name),
         }
     }
 }

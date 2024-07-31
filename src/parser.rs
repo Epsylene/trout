@@ -66,10 +66,12 @@ use crate::ast::{Expr, Stmt};
 //
 //  program := (declaration | statement)* EOF
 //
-//  declaration := var_decl | fn_decl
+//  declaration := var_decl | fn_decl | class_decl
+//
 //  var_decl := "let" IDENTIFIER ("=" expression)?
 //  fn_decl := "fn" IDENTIFIER "(" parameters? ")" block
 //  parameters := IDENTIFIER ("," IDENTIFIER)*
+//  class_decl := "class" IDENTIFIER "{" fn_decl* "}"
 //
 //  statement := expr_stmt | print_stmt | block 
 //                  | if_stmt | while_stmt 
@@ -185,6 +187,8 @@ impl Parser {
             TokenKind::Let => Some(self.declaration()),
             // - A function declaration;
             TokenKind::Fn => Some(self.function()),
+            // - A class statement;
+            TokenKind::Class => Some(self.class()),
             // - A regular statement.
             _ => Some(self.statement()),
         }
@@ -221,6 +225,32 @@ impl Parser {
         let body = self.block()?;
 
         Ok(Stmt::function(name, parameters, body))
+    }
+
+    fn class(&mut self) -> Result<Stmt> {
+        // class_decl := "class" IDENTIFIER "{" fn_decl* "}"
+        self.advance(); // Consume the "class" keyword
+
+        // A class is identified by a name...
+        let name = self.consume(TokenKind::Identifier, ErrorKind::ExpectedIdentifierClass)?;
+
+        // ...and comprised of a list of methods.
+        self.advance(); // Consume the left brace
+        let mut methods = Vec::new();
+        
+        while !self.match_next(TokenKind::RightBrace) && !self.is_at_end() {
+            match self.zero().kind {
+                TokenKind::Fn => methods.push(self.function()?),
+                _ => return Err(Error::new(
+                    &self.zero().location,
+                    ErrorKind::ExpectedMethod
+                )),
+            }
+        }
+
+        self.consume(TokenKind::RightBrace, ErrorKind::ExpectedRightBrace)?;
+
+        Ok(Stmt::class(name, methods))
     }
 
     fn declaration(&mut self) -> Result<Stmt> {

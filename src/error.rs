@@ -49,6 +49,8 @@ pub enum ErrorKind {
     ExpectedIdentifierArg,
     ExpectedRightParenArgList,
     ExpectedFnOrLambda,
+    ExpectedIdentifierClass,
+    ExpectedMethod,
 
     // Resolver
     VariableNotDeclared(String),
@@ -126,6 +128,12 @@ impl Display for ErrorKind {
             }
             ErrorKind::ExpectedFnOrLambda => {
                 write!(f, "Expected identifier or list of arguments after 'fn'")
+            }
+            ErrorKind::ExpectedIdentifierClass => {
+                write!(f, "Expected identifier after 'class'")
+            }
+            ErrorKind::ExpectedMethod => {
+                write!(f, "Expected method ('fn ident() {{...}}') inside of class")
             }
 
             // Resolver
