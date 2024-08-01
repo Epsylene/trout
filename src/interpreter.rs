@@ -263,10 +263,10 @@ impl Interpreter {
         // The class exists by itself in the environment, so we
         // bind its identifier.
         self.environment.define(name.lexeme.clone(), None);
-        let class = Class::new(name.lexeme.clone());
         self.environment.assign(name.lexeme.clone(), Value::class(name));
 
-        // The "class statement" itself does not return a value.
+        // The "class statement" itself does not return a
+        // value.
         Ok(Value::Nil)
     }
 
@@ -281,6 +281,46 @@ impl Interpreter {
         // because by itself it is only an object value, which
         // is passed around and stored.
         Ok(lambda)
+    }
+
+    fn field_get(&mut self, object: &Expr, field: &Token) -> Result<Value> {
+        // We first need to get the "field-accessing"
+        // expression, which should evaluate to an object of a
+        // class.
+        let object = self.evaluate(object)?;
+        match object {
+            // If that is the case, the value returned is that
+            // of the field accessed.
+            Value::Instance(instance) => {
+                Ok(instance.get(field)?)
+            }
+            _ => Err(Error::new(
+                &field.location,
+                ErrorKind::NotInstance)
+            ),
+        }
+    }
+
+    fn field_set(&mut self, object: &Expr, field: &Token, value: &Expr) -> Result<Value> {
+        // What is trying to set the field?
+        let object = self.evaluate(object)?;
+        match object {
+            Value::Instance(mut instance) => {
+                // If it is an object, then we can evaluate the
+                // value and set the field to it.
+                let value = self.evaluate(value)?;
+                instance.set(field, value.clone());
+
+                // Like with variable assignment, we return the
+                // value of the assignment, so that we can nest
+                // set assignments.
+                Ok(value)
+            }
+            _ => Err(Error::new(
+                &field.location,
+                ErrorKind::NotInstance)
+            ),
+        }
     }
 
     fn evaluate(&mut self, expr: &Expr) -> Result<Value> {
@@ -308,6 +348,8 @@ impl Interpreter {
             Expr::Assign { lhs, rhs } => self.assign(lhs, rhs),
             Expr::Call { callee, arguments, close_paren } => self.call(callee, arguments, close_paren),
             Expr::Lambda { params, body } => self.lambda(params, body),
+            Expr::Get { object, field } => self.field_get(object, field),
+            Expr::Set { object, field, value } => self.field_set(object, field, value),
         }
     }
     

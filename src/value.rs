@@ -8,7 +8,7 @@ use crate::{
     interpreter::Interpreter, 
     literal::LiteralType, 
     token::Token,
-    class::Class,
+    class::{Class, Instance},
 };
 
 #[derive(Clone, PartialEq)]
@@ -27,6 +27,7 @@ pub enum Value {
 
     // Classes
     Class(Class),
+    Instance(Instance),
 }
 
 impl Value {
@@ -40,6 +41,10 @@ impl Value {
 
     pub fn class(name: &Token) -> Self {
         Value::Class(Class::new(name.lexeme.clone()))
+    }
+
+    pub fn instance(class: Class) -> Self {
+        Value::Instance(Instance::new(class))
     }
 }
 
@@ -85,6 +90,7 @@ impl Debug for Value {
             Value::Lambda(lambda) => write!(f, "{:?}", lambda),
             Value::NativeFunction(func) => write!(f, "{:?}", func),
             Value::Class(class) => write!(f, "{:?}", class),
+            Value::Instance(instance) => write!(f, "{:?}", instance),
         }
     }
 }
@@ -101,6 +107,7 @@ impl Display for Value {
             Value::Lambda(lambda) => write!(f, "fn({})", lambda.params.join(", ")),
             Value::NativeFunction(func) => write!(f, "{}()", func.name),
             Value::Class(class) => write!(f, "{}", class.name),
+            Value::Instance(instance) => write!(f, "{} instance", instance.class.name),
         }
     }
 }

@@ -112,6 +112,8 @@ impl Resolver {
             Expr::Lambda { params, body } => self.lambda_expr(params, body),
             Expr::Grouping { expression } => self.resolve_expr(expression),
             Expr::Unary { operator: _, right } => self.resolve_expr(right),
+            Expr::Get { object, field: _ } => self.resolve_expr(object),
+            Expr::Set { object, field: _, value } => self.set_expr(object, value),
             Expr::Literal { value: _ } => Ok(()),
         }
     }
@@ -342,6 +344,14 @@ impl Resolver {
 
         // ...and restoring the previous state.
         self.current_fn = enclosing_fn;
+
+        Ok(())
+    }
+
+    fn set_expr(&mut self, object: &Expr, value: &Expr) -> Result<()> {
+        // Resolve first the value, then the instance.
+        self.resolve_expr(value)?;
+        self.resolve_expr(object)?;
 
         Ok(())
     }

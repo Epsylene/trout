@@ -51,6 +51,7 @@ pub enum ErrorKind {
     ExpectedFnOrLambda,
     ExpectedIdentifierClass,
     ExpectedMethod,
+    ExpectedIdentifierField,
 
     // Resolver
     VariableNotDeclared(String),
@@ -67,6 +68,8 @@ pub enum ErrorKind {
     NotCallable,
     FunctionArity(usize, usize),
     Return(Value),
+    NotInstance,
+    UnknownField(String),
 }
 
 impl Display for ErrorKind {
@@ -135,6 +138,9 @@ impl Display for ErrorKind {
             ErrorKind::ExpectedMethod => {
                 write!(f, "Expected method ('fn ident() {{...}}') inside of class")
             }
+            ErrorKind::ExpectedIdentifierField => {
+                write!(f, "Expected identifier after '.'")
+            }
 
             // Resolver
             ErrorKind::VariableNotDeclared(name) => {
@@ -174,6 +180,12 @@ impl Display for ErrorKind {
             }
             ErrorKind::Return(_) => {
                 write!(f, "Return statement outside of function")
+            }
+            ErrorKind::NotInstance => {
+                write!(f, "Expression is not an instance of a class")
+            }
+            ErrorKind::UnknownField(name) => {
+                write!(f, "Unknown field '{}'", name)
             }
         }
     }

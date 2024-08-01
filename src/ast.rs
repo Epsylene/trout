@@ -1,6 +1,5 @@
 use crate::token::Token;
 use std::fmt::{Debug, Display};
-use std::hash::{Hash, Hasher};
 
 // We have a source code, which is a string of characters from
 // which we derive a series of tokens -- the vocabulary of our
@@ -80,6 +79,8 @@ use std::hash::{Hash, Hasher};
 // - A function call (a function applied to a list of
 //   arguments; the "paren" field is the closing parenthesis,
 //   used for error reporting)
+// - A lambda (an anonymous function)
+// - A "field get" (accessing a field of an object)
 #[derive(Clone, PartialEq)]
 pub enum Expr {
     Literal { value: Token },
@@ -91,6 +92,8 @@ pub enum Expr {
     Assign { lhs: Token, rhs: Box<Expr> },
     Call { callee: Box<Expr>, arguments: Vec<Expr>, close_paren: Token},
     Lambda { params: Vec<Token>, body: Box<Stmt> },
+    Get { object: Box<Expr>, field: Token },
+    Set { object: Box<Expr>, field: Token, value: Box<Expr> },
 }
 
 impl Expr {
@@ -150,6 +153,21 @@ impl Expr {
         Expr::Lambda {
             params,
             body: Box::new(body),
+        }
+    }
+
+    pub fn field_get(object: Expr, field: Token) -> Self {
+        Expr::Get {
+            object: Box::new(object),
+            field,
+        }
+    }
+
+    pub fn field_set(object: Box<Expr>, field: Token, value: Expr) -> Self {
+        Expr::Set {
+            object,
+            field,
+            value: Box::new(value),
         }
     }
 }
@@ -271,6 +289,8 @@ impl Display for Expr {
                 write!(f, ") ")?;
                 write!(f, "{}", body)
             }
+            Expr::Get { object, field: name } => write!(f, "{}.{}", object, name.lexeme),
+            Expr::Set { object, field: name, value } => write!(f, "{}.{} = {}", object, name.lexeme, value),
         }
     }
 }
@@ -289,6 +309,8 @@ impl Debug for Expr {
                 write!(f, "Expr::Call({:?}, {:?})", callee, arguments)
             }
             Expr::Lambda { params, body } => write!(f, "Expr::Lambda({:?}, {:?})", params, body),
+            Expr::Get { object, field: name } => write!(f, "Expr::Field({:?}, {:?})", object, name),
+            Expr::Set { object, field: name, value } => write!(f, "Expr::Set({:?}, {:?}, {:?})", object, name, value),
         }
     }
 }
@@ -343,9 +365,9 @@ impl Display for Stmt {
                 }
             }
             Stmt::Class { name, methods } => {
-                write!(f, "class {} {{\n", name.lexeme)?;
+                writeln!(f, "class {} {{", name.lexeme)?;
                 for method in methods {
-                    write!(f, "{}\n", method)?;
+                    writeln!(f, "{}", method)?;
                 }
                 write!(f, "}}")
             }

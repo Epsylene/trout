@@ -53,8 +53,7 @@ impl Environment {
         // Assigning a value to a variable is similar to
         // defining it, but we need to check if the variable
         // exists in the current environment. If it does, we
-        // update it; otherwise, we check the parent
-        // environment, and so on up to the global scope.
+        // update it.
         if let Entry::Occupied(mut e) = self.values.entry(name.clone()) {
             e.insert(Some(value));
         }

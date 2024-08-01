@@ -87,7 +87,7 @@ use crate::ast::{Expr, Stmt};
 //  return := "return" expression?
 //
 //  expression := assignment
-//  assignment := IDENTIFIER "=" assignment | logical_or
+//  assignment := ( call "." )? IDENTIFIER "=" assignment | logical_or
 //  logical_or := logical_and ( "or" logical_and )*
 //  logical_and := equality ( "and" equality )*
 //  equality   := comparison ( ( "!=" | "==" ) comparison )*
@@ -95,7 +95,7 @@ use crate::ast::{Expr, Stmt};
 //  term       := factor ( ( "-" | "+" ) factor )*
 //  factor     := unary ( ( "/" | "*" ) unary )*
 //  unary      := ( "!" | "-" ) unary | call
-//  call       := primary ( "(" arguments? ")" )*
+//  call       := primary ( "(" arguments? ")" | "." IDENTIFIER )*
 //  arguments  := expression ( "," expression )*
 //  primary    := value | "(" expression ")" | IDENTIFIER
 //  value      := NUMBER | STRING | "true" | "false" | "nil" | lambda
@@ -461,16 +461,20 @@ impl Parser {
             let rhs = self.assignment()?;
 
             // Once this is done, we can check if the LHS is an
-            // actual variable we can assign to (and not an
+            // actual identifier we can assign to (and not an
             // expression of the type "a + b = c", where a + b
-            // is clearly an r-value, not an l-value).
-            if let Expr::Variable { name } = lhs {
-                lhs = Expr::assign(name, rhs);
-            } else {
-                return Err(Error::new(
+            // is clearly an r-value, not an l-value), and
+            // update it.
+            lhs = match lhs {
+                // If the LHS is a variable or a field, we can
+                // assign to it.
+                Expr::Variable { name } => Expr::assign(name, rhs),
+                Expr::Get { object, field } => Expr::field_set(object, field, rhs),
+                // Otherwise, we have an error.
+                _ => return Err(Error::new(
                     &equals.location,
                     ErrorKind::ExpectedIdentifierAssignment
-                ));
+                )),
             }
         }
 
@@ -611,22 +615,32 @@ impl Parser {
     }
 
     fn call(&mut self) -> Result<Expr> {
-        // call := primary ( "(" arguments? )*
+        // call := primary ( "(" arguments? ")" | "." IDENTIFIER )*
 
         // A call expression is a primary expression (an
         // identifier, typically)...
         let mut expr = self.primary()?;
 
-        // ...followed by an argument list between parentheses.
-        // Since functions can return functions, we can have
-        // code of the form "f()()()...". To account for this,
-        // we keep parsing arguments while matching for left
-        // parens, and update each time the callee of the
-        // expression with the returned call expression (that
-        // is, f(a)(b,c) has callee f(a) and arglist (b,c), and
-        // f(a) has callee f and arglist (a)).
-        while self.match_next(TokenKind::LeftParen) {
-            expr = self.arguments(expr)?;
+        // ...followed by either an argument list between
+        // parentheses (function call) or a dot and an
+        // identifier (field access). Both function calls and
+        // field accesses can be chained (and combined, since a
+        // function call might return a class instance), so we
+        // keep parsing arguments in a loop while matching.
+        loop {
+            expr = match self.advance().kind {
+                // For a function call, the current expression
+                // (the callee) is updated with the returned
+                // call expression (for example, f(a)(b,c) has
+                // callee f(a) and arglist (b,c), and f(a) has
+                // callee f and arglist (a)).
+                TokenKind::LeftParen => self.arguments(expr)?,
+                // The same goes for a field access, except
+                // that the current expression corresponds to
+                // the object instance accessing the field.
+                TokenKind::Dot => self.field_get(expr)?,
+                _ => break,
+            }
         }
 
         Ok(expr)
@@ -660,6 +674,16 @@ impl Parser {
         // argument list, in the form f(...), which can then be
         // composed with other calls.
         Ok(Expr::call(callee, arguments, paren))
+    }
+
+    fn field_get(&mut self, instance: Expr) -> Result<Expr> {
+        self.advance(); // Consume the dot
+        let field = self.consume(TokenKind::Identifier, ErrorKind::ExpectedIdentifierField)?;
+
+        // The field expression is the access by an object from
+        // an expression of one of its fields, identified by a
+        // name.
+        Ok(Expr::field_get(instance, field))
     }
 
     fn primary(&mut self) -> Result<Expr> {
