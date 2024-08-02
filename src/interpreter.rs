@@ -7,7 +7,6 @@ use crate::ast::{Expr, Stmt};
 use crate::function::Callable;
 use crate::environment::{Environment, GLOBAL_ENV};
 use crate::resolver::ScopeDepth;
-use crate::class::Class;
 
 pub struct Interpreter {
     // The interpreter needs to keep track of the environment
@@ -309,7 +308,7 @@ impl Interpreter {
                 // If it is an object, then we can evaluate the
                 // value and set the field to it.
                 let value = self.evaluate(value)?;
-                instance.set(field, value.clone());
+                instance.set(field.clone(), value.clone());
 
                 // Like with variable assignment, we return the
                 // value of the assignment, so that we can nest
@@ -382,7 +381,7 @@ impl Interpreter {
         // check for the depth of the variable in the
         // environment stack--if it is not None, the variable
         // has been declared at that depth.
-        if let Some(depth) = self.scopes.get(&lhs).cloned() {
+        if let Some(depth) = self.scopes.get(lhs).cloned() {
             // In that case, evaluate the expression and assign
             // at the corresponding depth.
             let value = self.evaluate(rhs)?;
@@ -411,11 +410,14 @@ impl Interpreter {
             args.push(self.evaluate(arg)?);
         }
 
-        // Finally, we can call the function.
+        // Finally, we can call the function (which may
+        // actually be a class, since it is by "calling" a
+        // class that we create new instances of that type).
         match callee {
             Value::Function(f) => self.make_call(f, args, close_paren),
             Value::Lambda(f) => self.make_call(f, args, close_paren),
             Value::NativeFunction(f) => self.make_call(f, args, close_paren),
+            Value::Class(c) => self.make_call(c, args, close_paren),
             _ => Err(Error::new(
                 &close_paren.location,
                 ErrorKind::NotCallable)
@@ -692,7 +694,7 @@ mod tests {
 
     #[test]
     fn test_grouping_expr() {
-        let input = "(5 + 6) * 2;";
+        let input = "(5 + 6) * 2";
         let res = interpret(input).unwrap();
         assert_eq!(res, Value::Int(22));
     }
@@ -809,7 +811,7 @@ mod tests {
 
     #[test]
     fn test_autoinit() {
-        let input = "let a = a + 2;";
+        let input = "let a = a + 2";
         let res = interpret(input);
         if let Err(errors) = res {
             assert_eq!(errors.len(), 1);

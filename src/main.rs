@@ -72,7 +72,7 @@ fn run_file(path: &str) -> Result<(), AppError> {
 fn run(source: &str, resolver: &mut Resolver, interpreter: &mut Interpreter) -> Result<Value, AppError> {
     let mut scan = Scanner::new(source);
     let tokens = scan.scan().map_err(AppError::Compiler)?;
-    
+
     let mut parser = Parser::new(tokens);
     let program = parser.parse().map_err(AppError::Compiler)?;
 

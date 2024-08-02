@@ -24,6 +24,9 @@ impl Callable for Class {
     }
 
     fn call(&self, _interpreter: &mut Interpreter, _args: Vec<Value>) -> Result<Value> {
+        // "Calling" a class is the way that instances are
+        // created: "let a = A()" binds an object of type
+        // 'A' to the variable 'a'.
         Ok(Value::instance(self.clone()))
     }
 }
@@ -55,11 +58,9 @@ impl Instance {
         }
     }
 
-    pub fn set(&mut self, field: &Token, value: Value) {
-        // Update the field, if it exists.
-        if let Entry::Occupied(mut e) = self.fields.entry(field.clone()) {
-            e.insert(value);
-        }
+    pub fn set(&mut self, field: Token, value: Value) {
+        // Update the field, and create it if it doesn't exist.
+        self.fields.insert(field, value);
     }
 }
 

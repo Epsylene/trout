@@ -309,7 +309,7 @@ impl Debug for Expr {
                 write!(f, "Expr::Call({:?}, {:?})", callee, arguments)
             }
             Expr::Lambda { params, body } => write!(f, "Expr::Lambda({:?}, {:?})", params, body),
-            Expr::Get { object, field: name } => write!(f, "Expr::Field({:?}, {:?})", object, name),
+            Expr::Get { object, field: name } => write!(f, "Expr::Get({:?}, {:?})", object, name),
             Expr::Set { object, field: name, value } => write!(f, "Expr::Set({:?}, {:?}, {:?})", object, name, value),
         }
     }
