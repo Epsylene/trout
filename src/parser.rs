@@ -443,7 +443,7 @@ impl Parser {
     }
 
     fn assignment(&mut self) -> Result<Expr> {
-        // assignment := IDENTIFIER "=" assignment | equality
+        // assignment := (call ".")? IDENTIFIER "=" assignment | equality
 
         // An assignment puts into an identifier an expression,
         // potentially itself an assignment. The left-hand side
@@ -633,7 +633,8 @@ impl Parser {
         // identifier (field access). Both function calls and
         // field accesses can be chained (and combined, since a
         // function call might return a class instance), so we
-        // keep parsing arguments in a loop while matching.
+        // keep parsing expressions in a loop while we keep
+        // encountering a dot or a left paren.
         loop {
             expr = match self.zero().kind {
                 // For a function call, the current expression
@@ -648,8 +649,6 @@ impl Parser {
                 TokenKind::Dot => self.field_get(expr)?,
                 _ => break,
             };
-
-            self.advance();
         }
 
         Ok(expr)
