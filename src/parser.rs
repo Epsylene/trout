@@ -105,13 +105,20 @@ pub struct Parser {
     current: usize,
 }
 
+const SEPARATOR: [TokenKind; 3] = [
+    TokenKind::Semicolon,
+    TokenKind::Newline,
+    TokenKind::Eof,
+];
+
 impl Parser {
+
     pub fn new(tokens: Vec<Token>) -> Self {
         Parser { tokens, current: 0 }
     }
 
     fn match_next(&self, expected: impl TokenMatch) -> bool {
-        !self.is_at_end() && expected.matches(&self.zero())
+        expected.matches(&self.zero())
     }
 
     fn advance(&mut self) -> Token {
@@ -268,9 +275,8 @@ impl Parser {
         } else {
             None
         };
-
-        self.consume(&[TokenKind::Semicolon, TokenKind::Newline], ErrorKind::ExpectedSeparator)?;
-
+        
+        self.consume(&SEPARATOR, ErrorKind::ExpectedSeparator)?;
         Ok(Stmt::var(name, initializer))
     }
 
@@ -404,13 +410,13 @@ impl Parser {
         // expression or terminates the function early. If the
         // token after the "return" keyword is not a separator,
         // it means that there is an expression to return.
-        let value = if !self.match_next(&[TokenKind::Semicolon, TokenKind::Newline]) {
+        let value = if !self.match_next(&SEPARATOR) {
             Some(self.expression()?)
         } else {
             None
         };
 
-        self.consume(&[TokenKind::Semicolon, TokenKind::Newline], ErrorKind::ExpectedSeparator)?;
+        self.consume(&SEPARATOR, ErrorKind::ExpectedSeparator)?;
 
         Ok(Stmt::return_stmt(keyword, value))
     }
@@ -418,10 +424,11 @@ impl Parser {
     fn expr_stmt(&mut self) -> Result<Stmt> {
         // expr_stmt := expression
 
-        // An expression statement is just an expression
-        // followed by a separator.
+        // An expression statement is a full statement (ending
+        // with a separator) that is evaluable as an
+        // expression.
         let expr = self.expression()?;
-        self.consume(&[TokenKind::Semicolon, TokenKind::Newline], ErrorKind::ExpectedSeparator)?;
+        self.consume(&SEPARATOR, ErrorKind::ExpectedSeparator)?;
 
         Ok(Stmt::expression(expr))
     }
@@ -628,7 +635,7 @@ impl Parser {
         // function call might return a class instance), so we
         // keep parsing arguments in a loop while matching.
         loop {
-            expr = match self.advance().kind {
+            expr = match self.zero().kind {
                 // For a function call, the current expression
                 // (the callee) is updated with the returned
                 // call expression (for example, f(a)(b,c) has
@@ -640,7 +647,9 @@ impl Parser {
                 // the object instance accessing the field.
                 TokenKind::Dot => self.field_get(expr)?,
                 _ => break,
-            }
+            };
+
+            self.advance();
         }
 
         Ok(expr)
@@ -788,7 +797,7 @@ mod test {
 
     #[test]
     fn test_var_declaration() {
-        let result = parse("let a = 1;");
+        let result = parse("let a = 1");
         assert!(result.is_ok());
         let stmts = result.unwrap();
         assert_eq!(stmts.len(), 1);
