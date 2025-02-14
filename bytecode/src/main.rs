@@ -1,3 +1,9 @@
+mod chunk;
+
+use chunk::{Chunk, Opcode};
+
 fn main() {
-    println!("Hello, world!");
+    let mut chunk = Chunk::new("test");
+    chunk.push(Opcode::Return as u8);
+    println!("{}", chunk);
 }
